@@ -1,0 +1,34 @@
+# config.yaml
+USER_NO: 20 # 4
+BW: 180e3  # %  180 kHz  (to be updated after consulting with Faouzi)
+PRB_NO: 512 #  (to be updated after consulting with Faouzi)
+SIGMA_NOISE: 10**(-12.4)  # = -94 dBm <tvt23choi> # 10e-10 before
+ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas
+X_LIM: 1000
+Y_LIM: 1000
+#CU_NO: 1 # only 1 CU is envisioned. It is co-located with the Near-RT RIC
+DU_NO: 2 # all connected to the CU
+RU_PER_DU_NO: 3 # Each DU has 3 RUs; Total number of RUs = 3*2 = 6
+#BS_NO: 20 # should be equal to RU_PER_DU_NO*DU_NO # static for now; Location.bs_location() --- now it is bound to 4 BSs. Can be changed later
+FH_BW_CAPACITY: 5000 # Mbps (5 Gbps) (link between RU and its DU)
+E2_BW_CAPACITY: 100000 # Mbps (100 Gbps) (link between DU and Near-RT RIC (equal to F1, which is between DU and CU))
+#VM_NO: 9 # 6
+#VNF_NO: 5 # 5
+#NODE_NO: 12
+SLICE_NO: 5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
+MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
+OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
+VELOCITY: -1 #35 # m/s [5,20,35,50] #             = self.V
+CONST_D_MAX: -1 # ms
+CONST_R_MIN: -1 # Mbps  
+#ISOLATION_ORDER: -1
+PACKET_SIZE: -1 # (to be updated after consulting with Faouzi)
+RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
+#Episodes (T) and Number of monte-carlo runs:#
+T: 400 # 14000 # 1000  # Number of timeslots
+MC: 2  # Number of Monte-carlo runs
+#Hyperparameters for the DRL algorithm
+ALPHA_ACT: 0.000001
+BETA_ACT: 0.000005
+VAR: 1
+DECAY_VAR: .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
