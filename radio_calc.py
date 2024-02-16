@@ -69,7 +69,6 @@ class Location:
         #         else:
         #             loc_user[t, u, :] = 1
         #             loc_user_pred[t, u, :] = loc_user[t, u, :] + self.V
-
         for u in range(self.USER_NO):
             if t == 0:
                 loc_user[t, u, :] = self.X_LIM * np.random.rand(2)  # initiate user location with a random location in the area
