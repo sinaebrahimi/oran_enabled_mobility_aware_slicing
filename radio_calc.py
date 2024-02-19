@@ -19,7 +19,7 @@ class Location:
             if VELOCITY == -1:
                 self.V[u] = random.uniform(0, 40)
             else:
-                self.V[u] = 35 # 35 m/s as default/constant speed for everyone
+                self.V[u] = VELOCITY # 35 m/s as default/constant speed for everyone
         self.angle = np.zeros([USER_NO])  # angle in degrees
         self.angle[u] = random.uniform(0, 360)  # Random angle between 0 and 360 degrees
 
@@ -35,7 +35,7 @@ class Location:
             # Determine the y-coordinate of the region (assuming it covers the entire Y-axis)
             region_start_y = self.X_LIM / self.DU_NO  # Assuming the center of the area is the midpoint of the Y-axis
             # Determine the spacing between RUs within the region
-            ru_spacing = region_size / (self.RU_PER_DU_NO + 1)
+            ru_spacing = region_size / (self.RU_PER_DU_NO + 1) #500/4 = 125
             # Place RUs evenly within the region
             for ru_idx in range(self.RU_PER_DU_NO):
                 # Determine the x-coordinate of the RU

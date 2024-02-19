@@ -18,7 +18,7 @@ E2_BW_CAPACITY: 100000 # Mbps (100 Gbps) (link between DU and Near-RT RIC (equal
 SLICE_NO: 5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
 MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
 OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
-VELOCITY: -1 #35 # m/s [5,20,35,50] #             = self.V
+VELOCITY: 35 #-1 #35 # m/s [5,20,35,50] #             = self.V
 CONST_D_MAX: -1 # ms
 CONST_R_MIN: -1 # Mbps  
 #ISOLATION_ORDER: -1
