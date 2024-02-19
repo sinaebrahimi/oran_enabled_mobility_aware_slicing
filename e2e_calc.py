@@ -1,20 +1,15 @@
 import numpy as np
 import networkx as nx
-from initialization import Capacity
+from radio_calc import Location
 
 
 class Mapping:
-    def __init__(self, action, mat_links_capacity, mat_nodes_and_vms_capacity, mat_specs, associator, USER_NO, VM_NO, VNF_NO, NODE_NO, BS_NO, PRB_NO, MAX_POWER):
+    def __init__(self, action, mat_links_capacity, mat_nodes_and_vms_capacity, mat_specs, associator, USER_NO,BS_NO, PRB_NO, MAX_POWER):
         self.USER_NO = USER_NO
-        self.VM_NO = VM_NO
-        self.VNF_NO = VNF_NO
-        self.NODE_NO = NODE_NO
         self.BS_NO = BS_NO
         self.PRB_NO = PRB_NO
         self.MAX_POWER = MAX_POWER
         #---------
-        self.mat_placement = np.zeros([self.USER_NO, self.VNF_NO, self.VM_NO, self.NODE_NO])
-        self.temp_mat_placement = np.copy(self.mat_placement)
         self.action = action
         self.W_link = np.zeros([self.NODE_NO, self.NODE_NO]) # G graph based on weights(for OSPF-like routing)
         # --------------------------------------------------------------------------
