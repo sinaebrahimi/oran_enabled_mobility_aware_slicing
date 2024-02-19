@@ -33,35 +33,3 @@ class Specifications:
             self.mat_specs[u, 2] = self.list_tolerable_delay[user_selected_slice] # self.user_tolerable_delay   #self.list_tolerable_delay[np.random.randint(len(self.list_tolerable_delay))] #  tolrable delay
             self.mat_specs[u, 3] = self.packet_size_multipled_by_packet_no[user_selected_slice]  # Pacekt_size * packet_no (in Mb per timeslot length)
         return self.mat_specs
-# %%
-
-class Capacity:
-    def __init__(self, RU_PER_DU_NO, DU_NO, BS_NO, FH_BW_CAPACITY, E2_BW_CAPACITY):
-        self.RU_PER_DU_NO = RU_PER_DU_NO
-        self.DU_NO = DU_NO
-        self.BS_NO = BS_NO
-        self.FH_BW_CAPACITY = FH_BW_CAPACITY
-        self.E2_BW_CAPACITY = E2_BW_CAPACITY
-        self.adj_matrix_du_ru = np.zeros((self.DU_NO, self.BS_NO))
-        self.adj_matrix_ric_du = np.zeros((1, self.DU_NO))
-        #processing capacity in RUs and DUs? 
-
-    def graph(self):
-        # Connect DUs to RUs
-        for du_idx in range(self.DU_NO):
-            for ru_idx in range(self.RU_PER_DU_NO):
-                self.adj_matrix_ru_du[du_idx, du_idx * self.RU_PER_DU_NO + ru_idx] = 1  # Connect DU to RU # FH interface
-        
-        #connect RIC to DUs
-        for du_idx in range(self.DU_NO):
-            self.adj_matrix_ric_du[0, du_idx] = 1 #  all DUs are connected to RIC via E2 interface
-        return self.adj_matrix_ru_du, self.adj_matrix_ric_du
-
-    def links_capacity(self): 
-        # link capacities are identical; FH_BW_CAPACITY Mbps for FH links and E2_BW_CAPACITY Mbps for E2 links
-        self.adj_matrix_ru_du, self.adj_matrix_ric_du = Capacity.graph(self)
-        self.mat_fh_links_capacity = self.adj_matrix_ru_du * self.FH_BW_CAPACITY # capacity matrix for FH links between DUs and RUs
-        self.mat_e2_links_capacity = self.adj_matrix_ric_du * self.E2_BW_CAPACITY
-        return self.mat_fh_links_capacity, self.mat_e2_links_capacity
-
-

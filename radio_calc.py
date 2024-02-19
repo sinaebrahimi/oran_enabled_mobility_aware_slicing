@@ -1,50 +1,137 @@
 import numpy as np
 from scipy.stats import rayleigh
+from scipy.spatial import distance
 import random
+import matplotlib.pyplot as plt
+
 
 
 class Location:
-    def __init__(self, BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY, X_LIM, RAYLEIGH_SCALE, ETA_AREA):
+    def __init__(self, BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY, X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY):
         self.mat_bs_loc = np.zeros([BS_NO, 2])
+        self.mat_du_loc = np.zeros([DU_NO, 2])
         self.BS_NO = BS_NO
         self.DU_NO = DU_NO
-        self.RU_PER_DU_NO = RU_PER_DU_NO
+        self.RU_PER_DU_NO = RU_PER_DU_NO        
+        self.du_ru_adj_matrix = np.zeros((self.DU_NO, self.BS_NO))# Create an adjacency matrix to connect RUs to DUs based on distances
+        self.ric_du_adj_matrix = np.zeros((1, self.DU_NO))
+        self.FH_BW_CAPACITY = FH_BW_CAPACITY
+        self.E2_BW_CAPACITY = E2_BW_CAPACITY
         self.PRB_NO = PRB_NO
         self.USER_NO = USER_NO
         self.X_LIM = X_LIM
         self.eta = ETA_AREA # power of additive white Gaussian noise (AWGN) #eta in paper # 3 for rural areas
         self.scale = RAYLEIGH_SCALE #2 # sigma in rayleigh distribution formula. 1 by default
-        self.V = np.zeros([USER_NO]) #each user have a velocity 
+        self.V = np.zeros([USER_NO]) #each user have a velocity
+        self.angle = np.zeros([USER_NO])  # angle in degrees
         for u in range(self.USER_NO):
+            self.angle[u] = random.uniform(0, 360)  # Random angle between 0 and 360 degrees
             if VELOCITY == -1:
                 self.V[u] = random.uniform(0, 40)
             else:
                 self.V[u] = VELOCITY # 35 m/s as default/constant speed for everyone
-        self.angle = np.zeros([USER_NO])  # angle in degrees
-        self.angle[u] = random.uniform(0, 360)  # Random angle between 0 and 360 degrees
 
 
-    def bs_location(self): #BS Locations:[[125. 625.] [250. 750.] [375. 875.] [625. 625.] [750. 750.] [875. 875.]]
-        # Place RUs evenly within each region
-        region_size = self.X_LIM / self.DU_NO # 1000/2 = 500
-        for du_idx in range(self.DU_NO):
-            # Determine the starting x-coordinate of the region
-            region_start_x = du_idx * region_size            
-            # Determine the ending x-coordinate of the region
-            #region_end_x = (du_idx + 1) * region_size            
-            # Determine the y-coordinate of the region (assuming it covers the entire Y-axis)
-            region_start_y = self.X_LIM / self.DU_NO  # Assuming the center of the area is the midpoint of the Y-axis
-            # Determine the spacing between RUs within the region
-            ru_spacing = region_size / (self.RU_PER_DU_NO + 1) #500/4 = 125
-            # Place RUs evenly within the region
-            for ru_idx in range(self.RU_PER_DU_NO):
-                # Determine the x-coordinate of the RU
-                ru_x = region_start_x + ru_spacing * (ru_idx + 1)
-                ru_y = region_start_y + ru_spacing * (ru_idx + 1)
-                # Store the RU location in the matrix
-                self.mat_bs_loc[du_idx * self.RU_PER_DU_NO + ru_idx] = [ru_x, ru_y]
+    def bs_location(self):
+        # Determine the number of cells/regions in each dimension
+        cells_x = int(np.sqrt(self.BS_NO))  # Assuming nearly square grid
+        cells_y = int(np.ceil(self.BS_NO / cells_x))
+        
+        # Calculate the size of each cell
+        cell_width = self.X_LIM / cells_x
+        cell_height = self.X_LIM / cells_y
+
+        # Place BSs evenly within the grid
+        bs_count = 0
+        for i in range(cells_x):
+            for j in range(cells_y):
+                if bs_count < self.BS_NO:
+                    # Calculate the coordinates of the BS within the cell
+                    bs_x = (i + 0.5) * cell_width  # Place at the center of the cell
+                    bs_y = (j + 0.5) * cell_height
+                    self.mat_bs_loc[bs_count, 0] = bs_x
+                    self.mat_bs_loc[bs_count, 1] = bs_y
+                    bs_count += 1
+                else:
+                    break
         return self.mat_bs_loc
+    
+    def du_location(self):
+        #assuming the number of DUs is lower than the number of RUs (BSs)
+        # Determine the number of cells/regions in each dimension
+        cells_x = int(np.sqrt(self.DU_NO))  # Assuming nearly square grid
+        cells_y = int(np.ceil(self.DU_NO / cells_x))
+        
+        # Calculate the size of each cell
+        cell_width = self.X_LIM / cells_x
+        cell_height = self.X_LIM / cells_y
 
+        # Place DUs evenly within the grid
+        du_count = 0
+        for i in range(cells_x):
+            for j in range(cells_y):
+                if du_count < self.DU_NO:
+                    # Calculate the coordinates of the DU within the cell
+                    du_x = (i + 0.5) * cell_width  # Place at the center of the cell
+                    du_y = (j + 0.5) * cell_height
+                    self.mat_du_loc[du_count, 0] = du_x
+                    self.mat_du_loc[du_count, 1] = du_y
+                    du_count += 1
+                else:
+                    break
+        return self.mat_du_loc    
+    
+    def adj_matrix(self):        
+        for i in range(self.DU_NO):
+            du_x, du_y = self.mat_du_loc[i]
+            # Calculate distances between DU and RUs
+            distances = [distance.euclidean((du_x, du_y), (bs_x, bs_y)) for bs_x, bs_y in self.mat_bs_loc]
+            # Find the index of the closest RU to the DU
+            closest_ru_index = np.argmin(distances)
+            self.du_ru_adj_matrix[i, closest_ru_index] = 1
+        # Ensure all RUs are assigned to a DU
+        while not np.all(self.du_ru_adj_matrix.sum(axis=0) == 1):
+            # Get indices of unassigned RUs
+            unassigned_indices = np.where(self.du_ru_adj_matrix.sum(axis=0) == 0)[0]
+            for idx in unassigned_indices:
+                # Find the index of the closest DU to the unassigned RU
+                distances = [distance.euclidean((du_x, du_y), self.mat_bs_loc[idx]) for du_x, du_y in self.mat_du_loc]
+                closest_du_index = np.argmin(distances)
+                self.du_ru_adj_matrix[closest_du_index, idx] = 1
+        
+        # Now let's connect RIC (or the CU (assuming there's only one)) to DUs
+        for du_idx in range(self.DU_NO):
+            self.ric_du_adj_matrix[0, du_idx] = 1 #  all DUs are connected to RIC via E2 interface      
+        return self.du_ru_adj_matrix, self.ric_du_adj_matrix
+
+    def links_capacity(self): 
+        # link capacities are identical; FH_BW_CAPACITY Mbps for FH links and E2_BW_CAPACITY Mbps for E2 links
+        self.adj_matrix_ru_du, self.adj_matrix_ric_du = Location.adj_matrix(self)
+        self.mat_fh_links_capacity = self.adj_matrix_ru_du * self.FH_BW_CAPACITY # capacity matrix for FH links between DUs and RUs
+        self.mat_e2_links_capacity = self.adj_matrix_ric_du * self.E2_BW_CAPACITY
+        return self.mat_fh_links_capacity, self.mat_e2_links_capacity
+    
+    def plot_ru_du_locations(self): # just visualizing the RUs and DUs # not important for the solution
+        # Plotting RUs and DUs
+        plt.figure(figsize=(8, 8))
+        for i in range(self.DU_NO):
+            du_x, du_y = self.mat_du_loc[i]
+            bs_indices = np.where(self.du_ru_adj_matrix[i] == 1)[0]
+            colors = plt.cm.viridis(np.linspace(0, 1, len(bs_indices)))
+            for idx, bs_idx in enumerate(bs_indices):
+                bs_x, bs_y = self.mat_bs_loc[bs_idx]
+                plt.plot([du_x, bs_x], [du_y, bs_y], color=colors[idx], linestyle='--')
+            plt.scatter(du_x, du_y, color='red', label=f'DU {i+1}')
+        plt.scatter(self.mat_bs_loc[:, 0], self.mat_bs_loc[:, 1], color='blue', label='RUs')
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.title('Locations of RUs and DUs')
+        plt.legend()
+        plt.grid(True)
+        plt.show()        
+
+
+# User location and channel gain calculations
     def user_location(self, t, loc_user): #also calculates channel gain
         self.mat_bs_loc = Location.bs_location(self)
         self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
@@ -126,6 +213,48 @@ class Location:
             self.associator_pred[u, self.b_pred_connected] = 1
 
         return loc_user, loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred
+    
+    def plot_user_movement(self, loc_user, associator, t):
+        # Set up figure and axis for plotting
+        fig, ax = plt.subplots(figsize=(8, 8))
+
+        # Plot BSs
+        bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs
+        for b in range(self.BS_NO):
+            bs_x, bs_y = self.mat_bs_loc[b]
+            ax.scatter(bs_x, bs_y, color=bs_colors[b], marker='s', s=100)  # Use a square marker for BSs
+            ax.text(bs_x, bs_y, str(b), color='white', ha='center', va='center')  # Print BS index inside its symbol
+
+        # Plot users and connections to BSs
+        for u in range(self.USER_NO):
+            user_color = plt.cm.viridis(u / self.USER_NO)  # Use a different color for each user
+            valid_indices = np.where(loc_user[:, u, 0] != 0)[0]  # Find valid indices where user position is not (0, 0)
+            if len(valid_indices) > 1:  # If there are valid indices (excluding the initialization)
+                ax.plot(loc_user[valid_indices, u, 0], loc_user[valid_indices, u, 1], color=user_color)  # Plot user trajectory
+                bs_index = np.where(associator[u] == 1)[0][0]  # Get the index of the BS assigned to the user
+                bs_x, bs_y = self.mat_bs_loc[bs_index]
+                if bs_colors[bs_index] == 'grey':
+                    bs_colors[bs_index] = plt.cm.viridis(u / self.USER_NO)  # Change color to user's color if BS is occupied
+                ax.arrow(loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-2], u, 1],  # Start of arrow at second last valid timestep
+                        loc_user[valid_indices[-1], u, 0] - loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-1], u, 1] - loc_user[valid_indices[-2], u, 1],  # Arrow direction
+                        head_width=10, head_length=15, fc=user_color, ec=user_color, linestyle='dotted')  # Arrow properties
+
+                # Plot a dotted line from user's last valid position to the assigned BS
+                ax.plot([loc_user[valid_indices[-1], u, 0], bs_x], [loc_user[valid_indices[-1], u, 1], bs_y], color=user_color, linestyle='dotted')
+
+        # Set labels and title
+        ax.set_xlabel('X Coordinate')
+        ax.set_ylabel('Y Coordinate')
+        ax.set_title('User Movement Over Time (t='+str(t)+')')
+
+        # Show legend
+        legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=plt.cm.viridis(u / self.USER_NO), markersize=10, label=f'User {u}') for u in range(self.USER_NO)]
+        legend_handles.append(plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='grey', markersize=10, label='Unoccupied BS'))
+        ax.legend(handles=legend_handles)
+
+        # Show plot
+        plt.grid(True)
+        plt.show()    
 # %%
 
 class RateCalculation:
@@ -140,6 +269,9 @@ class RateCalculation:
         self.H = H
         self.mat_rate = np.zeros([self.USER_NO])
         self.mat_rate_prb = np.zeros([self.PRB_NO, self.USER_NO])
+        self.SINR_dB = np.zeros([self.USER_NO])
+        self.signal_strength_dB = np.zeros([self.USER_NO])
+        self.interference_dB = np.zeros([self.USER_NO])
         self.associator = associator
 
     def calculate_interference(self, b, k, u): #BS, PRB, user
@@ -157,11 +289,14 @@ class RateCalculation:
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
                         I_inter = RateCalculation.calculate_interference(self, b, k, u)
-                        self.ph = self.P[b, k, u] * self.rho[b, k, u] * self.H[b, k, u]
-                        self.SINR = (self.ph) / (I_inter + self.SIGMA_NOISE) #10e-10 for SIGMA_NOISE
+                        self.signal_strength = self.P[b, k, u] * self.rho[b, k, u] * self.H[b, k, u]
+                        self.signal_strength_dB[u] = 10 * np.log10(self.signal_strength)
+                        self.noise_plus_interference = (I_inter + (self.SIGMA_NOISE * self.BW))
+                        self.SINR = self.signal_strength / self.noise_plus_interference #10e(-12.4) for SIGMA_NOISE
+                        self.SINR_dB[u] = 10 * np.log10(self.SINR)
                         self.rate_prb = self.BW * np.log2(1 + self.SINR)
                         self.mat_rate_prb[k, u] = self.rate_prb
                         self.mat_rate[u] += self.rate_prb
 
-        self.mat_rate = self.mat_rate / 10e6 # Convert to Mbps
-        return self.mat_rate, self.mat_rate_prb
+        self.mat_rate = self.mat_rate / 1e6 # Convert to Mbps
+        return self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB

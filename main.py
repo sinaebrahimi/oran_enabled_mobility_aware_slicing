@@ -25,7 +25,7 @@ with open(config_file, 'r') as f:
 
 # Access the values from the config dictionary
 USER_NO = config['USER_NO']
-BW = eval(config['BW'])
+BW = config['BW'] # eval(config['BW'])
 PRB_NO = config['PRB_NO']
 # It previously identified it as str! casting to float did not work
 SIGMA_NOISE = eval(config['SIGMA_NOISE'])
