@@ -2,7 +2,7 @@
 USER_NO: 20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
 PRB_NO: 512 #  (to be updated after consulting with Faouzi)
-SIGMA_NOISE: (3.981)e(-18) #10**(-17.4) # = -174 dBm <tnsm23nouruzi> #
+SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
 ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas
 X_LIM: 1000
 Y_LIM: 1000

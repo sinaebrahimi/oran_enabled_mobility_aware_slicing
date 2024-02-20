@@ -94,7 +94,7 @@ class Delay:
         self.associator = associator
         self.E2_BW_CAPACITY = E2_BW_CAPACITY
         self.mat_specs = mat_specs
-        self.speed_of_light = 300000000 # 3*10^8 m/s (exactly equal to 299,792,458 metres per second)
+        self.speed_of_light = 3e8 # 300000000 # 3*10^8 m/s (exactly equal to 299,792,458 metres per second)
         self.mat_distance_uu = mat_distance_uu
         self.distances_ric_du = distances_ric_du
         self.distances_du_ru = distances_du_ru
@@ -192,6 +192,7 @@ class StateCalculation: # TO BE COMPLETED
         self.H = H
         self.loc_users_t = loc_users_t
         #to add other states
+        # self.mat_specs = mat_specs # s3 = 4 * USER_NO # includes 0: selected slice, 1: min rate, 2: tolerable delay, 3: packet size
 
     def _(self):
         self.states_no = self.H.size + self.loc_users_t.size
