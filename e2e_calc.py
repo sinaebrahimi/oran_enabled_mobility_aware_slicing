@@ -11,7 +11,6 @@ class Mapping:
         self.MAX_POWER = MAX_POWER
         #---------
         self.action = action
-        self.W_link = np.zeros([self.NODE_NO, self.NODE_NO]) # G graph based on weights(for OSPF-like routing)
         # --------------------------------------------------------------------------
         self.P = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
         self.rho = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
@@ -77,14 +76,13 @@ class Mapping:
 
 #%%%%
 class Delay:
-    def __init__(self, mat_rate, mat_placement, W_link, mat_links_capacity, mat_nodes_and_vms_capacity, mat_specs, path, associator, mat_distance, USER_NO, VNF_NO, BS_NO):
+    def __init__(self, mat_rate, mat_placement, mat_links_capacity, mat_nodes_and_vms_capacity, mat_specs, path, associator, mat_distance, USER_NO, VNF_NO, BS_NO):
         self.USER_NO = USER_NO
         self.VNF_NO = VNF_NO
         self.BS_NO = BS_NO
         #-------------------
         self.mat_rate = mat_rate
         self.mat_placement = mat_placement
-        self.W_link = W_link
         self.associator = associator
         self.path = path
         self.mat_links_capacity = mat_links_capacity
@@ -99,8 +97,8 @@ class Delay:
 
     def tx_ran(self):
         for u in range(self.USER_NO):
-            # delay_tx_ran = PACKET_SIZE / self.mat_rate[u]
-            delay_tx_ran = self.mat_specs[u, 3] / self.mat_rate[u]
+            PACKET_SIZE = self.mat_specs[u, 3]
+            delay_tx_ran = PACKET_SIZE / self.mat_rate[u]
             self.mat_delay_tx_ran[u] = delay_tx_ran
         return self.mat_delay_tx_ran
 
@@ -108,8 +106,8 @@ class Delay:
         for u in range(self.USER_NO):
             for b in range(self.BS_NO):
                 if self.associator[u, b] == 1:
-                   d = self.mat_distance[b, u]
-                   self.mat_delay_prop_ran[u] = d / self.speed_of_light
+                   distance = self.mat_distance[b, u]
+                   self.mat_delay_prop_ran[u] = distance / self.speed_of_light
 
         return self.mat_delay_prop_ran
 
