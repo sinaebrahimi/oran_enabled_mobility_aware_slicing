@@ -22,7 +22,7 @@ class Specifications:
             self.list_min_rate = [CONST_R_MIN] * SLICE_NO
 
         if PACKET_SIZE == -1:
-            self.packet_size_multipled_by_packet_no = [0.01, 0.1, 0.3, 0.7, 1.2] # [0.01, 0.05, 0.1, 0.3, 0.5] # data rate (in Mbps)# it is not per second; it is per timeslot length (~100ms)
+            self.packet_size_multipled_by_packet_no = [0.01, 0.1, 0.3, 0.7, 1.2] # in mbits # [0.01, 0.05, 0.1, 0.3, 0.5] # data rate (in Mbps)# it is not per second; it is per timeslot length (~100ms)
         else:
             self.packet_size_multipled_by_packet_no = [PACKET_SIZE] * SLICE_NO
     def _(self):

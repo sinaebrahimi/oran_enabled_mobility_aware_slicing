@@ -4,9 +4,11 @@ from radio_calc import Location
 
 
 class Mapping:
-    def __init__(self, action, mat_links_capacity, mat_nodes_and_vms_capacity, mat_specs, associator, USER_NO,BS_NO, PRB_NO, MAX_POWER):
+    #def __init__(self, action, FH_BW_CAPACITY, E2_BW_CAPACITY, du_ru_adj_matrix, ric_du_adj_matrix, mat_fh_links_capacity, mat_e2_links_capacity, , mat_specs, associator, USER_NO, BS_NO, DU_NO, PRB_NO, MAX_POWER):
+    def __init__(self, action, mat_specs, associator, USER_NO, BS_NO, PRB_NO, MAX_POWER):
         self.USER_NO = USER_NO
         self.BS_NO = BS_NO
+        #self.DU_NO = DU_NO
         self.PRB_NO = PRB_NO
         self.MAX_POWER = MAX_POWER
         #---------
@@ -14,19 +16,25 @@ class Mapping:
         # --------------------------------------------------------------------------
         self.P = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
         self.rho = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.path = np.zeros([self.USER_NO])
         #############################################################
         self.remained_power = np.ones([self.BS_NO]) * self.MAX_POWER
         #############################################################
-        self.mat_links_capacity = mat_links_capacity
-        self.mat_nodes_and_vms_capacity = mat_nodes_and_vms_capacity
+        # self.FH_BW_CAPACITY = FH_BW_CAPACITY
+        # self.E2_BW_CAPACITY = E2_BW_CAPACITY
+        # self.mat_fh_links_capacity = mat_fh_links_capacity
+        # self.mat_e2_links_capacity = mat_e2_links_capacity
+        # self.du_ru_adj_matrix = du_ru_adj_matrix
+        # self.ric_du_adj_matrix = ric_du_adj_matrix
         self.mat_specs = mat_specs
         #############################################################
-        self.temp_mat_links_capacity = np.copy(mat_links_capacity)
-        self.temp_mat_nodes_and_vms_capacity = np.copy(mat_nodes_and_vms_capacity)
+        # self.temp_mat_fh_links_capacity = np.copy(mat_fh_links_capacity)
+        # self.temp_mat_e2_links_capacity = np.copy(mat_e2_links_capacity)
         #############################################################
         self.associator = associator
 #%% RAN mapping:
+    # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
+    #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
+        
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e0 = 0
         self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
@@ -76,40 +84,82 @@ class Mapping:
 
 #%%%%
 class Delay:
-    def __init__(self, mat_rate, mat_placement, mat_links_capacity, mat_nodes_and_vms_capacity, mat_specs, path, associator, mat_distance, USER_NO, VNF_NO, BS_NO):
+    def __init__(self, mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, mat_specs, associator, mat_distance_uu, distances_ric_du, distances_du_ru, du_ru_adj_matrix, ric_du_adj_matrix, USER_NO, BS_NO, DU_NO):
         self.USER_NO = USER_NO
-        self.VNF_NO = VNF_NO
         self.BS_NO = BS_NO
+        self.DU_NO = DU_NO
         #-------------------
         self.mat_rate = mat_rate
-        self.mat_placement = mat_placement
+        self.FH_BW_CAPACITY = FH_BW_CAPACITY
         self.associator = associator
-        self.path = path
-        self.mat_links_capacity = mat_links_capacity
+        self.E2_BW_CAPACITY = E2_BW_CAPACITY
         self.mat_specs = mat_specs
         self.speed_of_light = 300000000 # 3*10^8 m/s (exactly equal to 299,792,458 metres per second)
-        self.mat_distance = mat_distance
+        self.mat_distance_uu = mat_distance_uu
+        self.distances_ric_du = distances_ric_du
+        self.distances_du_ru = distances_du_ru
+        self.du_ru_adj_matrix = du_ru_adj_matrix
+        self.ric_du_adj_matrix = ric_du_adj_matrix
 
-        self.mat_delay_proc = np.zeros([self.USER_NO])
-        self.mat_delay_tx_ran = np.zeros([self.USER_NO])
-        self.mat_delay_prop_ran = np.zeros([self.USER_NO])
-        self.mat_delay_tx_cn = np.zeros([self.USER_NO])
+        self.mat_delay_prop_uu = np.zeros([self.USER_NO])
+        self.mat_delay_prop_e2 = np.zeros([self.USER_NO])
+        self.mat_delay_prop_fh = np.zeros([self.USER_NO])
 
-    def tx_ran(self):
+        self.mat_delay_tx_uu = np.zeros([self.USER_NO])
+        self.mat_delay_tx_fh = np.zeros([self.USER_NO])
+        self.mat_delay_tx_e2 = np.zeros([self.USER_NO])
+#%%%%%%%%% Propagation delay calculation:
+    def prop_fh_e2(self):
         for u in range(self.USER_NO):
-            PACKET_SIZE = self.mat_specs[u, 3]
-            delay_tx_ran = PACKET_SIZE / self.mat_rate[u]
-            self.mat_delay_tx_ran[u] = delay_tx_ran
-        return self.mat_delay_tx_ran
-
-    def prop_ran(self):
+            for du in range(self.DU_NO):
+                for b in range(self.BS_NO):
+                    if self.du_ru_adj_matrix[du, b] == 1: # instead of \zeta ζ in the paper                       
+                        if self.associator[u, b] == 1:
+                            distance_du_ru = self.distances_du_ru[du, b]
+                            self.mat_delay_prop_fh = distance_du_ru / self.speed_of_light
+                            
+                            distance_ric_du = self.distances_ric_du[du]
+                            self.mat_delay_prop_e2 = distance_ric_du / self.speed_of_light
+                            
+        return self.mat_delay_prop_fh, self.mat_delay_prop_e2
+    
+    def prop_uu(self):
         for u in range(self.USER_NO):
             for b in range(self.BS_NO):
-                if self.associator[u, b] == 1:
-                   distance = self.mat_distance[b, u]
-                   self.mat_delay_prop_ran[u] = distance / self.speed_of_light
+                if self.associator[u, b] == 1: # instead of multiplying \chi
+                   distance = self.mat_distance_uu[b, u]
+                   self.mat_delay_prop_uu[u] = distance / self.speed_of_light
+        return self.mat_delay_prop_uu
 
-        return self.mat_delay_prop_ran
+#%%%%%%%%% Transmission delay calculation:
+    def tx_fh_e2(self):        
+        for u in range(self.USER_NO):
+            PACKET_SIZE = self.mat_specs[u, 3]
+            fh_overhead = 0.1 * PACKET_SIZE
+            e2_overhead = 0.1 * PACKET_SIZE
+            for du in range(self.DU_NO):
+                for b in range(self.BS_NO):
+                    if self.du_ru_adj_matrix[du, b] == 1: # instead of \zeta ζ in the paper                       
+                        if self.associator[u, b] == 1:
+                            if self.mat_rate[u] == 0:
+                                delay_tx_fh = 0
+                                delay_tx_e2 = 0
+                            else:
+                                delay_tx_fh = (PACKET_SIZE + fh_overhead) / self.FH_BW_CAPACITY
+                                delay_tx_e2 = (PACKET_SIZE + fh_overhead + e2_overhead) / self.E2_BW_CAPACITY
+                            self.mat_delay_tx_fh[u] = delay_tx_fh
+                            self.mat_delay_tx_e2[u] = delay_tx_e2                            
+        return self.mat_delay_tx_fh, self.mat_delay_tx_e2
+    
+    def tx_uu(self):
+        for u in range(self.USER_NO):
+            PACKET_SIZE = self.mat_specs[u, 3] # in mbits
+            if self.mat_rate[u] == 0:
+                delay_tx_uu = 0
+            else:
+                delay_tx_uu = PACKET_SIZE / self.mat_rate[u]
+            self.mat_delay_tx_uu[u] = delay_tx_uu
+        return self.mat_delay_tx_uu
 
 
     def _(self):
@@ -117,16 +167,17 @@ class Delay:
         self.mat_delay_tot *= 0.00001 # 10 us (0.01 ms)
         done_delay_all = 0
         cnt_u = 0
-        self.mat_delay_tx_ran = Delay.tx_ran(self)
-        self.mat_delay_prop_ran = Delay.prop_ran(self)
+        self.mat_delay_tx_uu = Delay.tx_uu(self)
+        self.mat_delay_tx_fh, self.mat_delay_tx_e2 = Delay.tx_fh_e2(self)
+        self.mat_delay_prop_fh, self.mat_delay_prop_e2 = Delay.prop_fh_e2(self)
+        self.mat_delay_prop_uu = Delay.prop_uu(self)
 
         for u in range(self.USER_NO):
-            user_tolerable_delay = self.mat_specs[u, 2]
+            user_tolerable_delay = self.mat_specs[u, 2] / 1000 # because it was in ms
             # if self.mat_delay_tx_cn[u] + self.mat_delay_proc[u] + self.mat_delay_proc[u] < user_tolerable_delay:
-            if self.mat_delay_tx_ran[u] + self.mat_delay_prop_ran[u] < user_tolerable_delay:
+            if self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] < user_tolerable_delay:
                 cnt_u += 1
-                # self.mat_delay_tot[u] = self.mat_delay_tx_cn[u] + self.mat_delay_proc[u] + self.mat_delay_proc[u] why two proc delays?
-                self.mat_delay_tot[u] = self.mat_delay_tx_ran[u] + self.mat_delay_prop_ran[u]#mat_delay_tx_ran is significantly greater than others
+                self.mat_delay_tot[u] = self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] # check self.mat_delay_tx_uu
                 #print("User {} total delay: {}".format(u, self.mat_delay_tot[u]))###to remove
 
         if cnt_u == self.USER_NO:
@@ -136,7 +187,7 @@ class Delay:
         return done_delay_all, self.mat_delay_tot
 
 # %%
-class StateCalculation:
+class StateCalculation: # TO BE COMPLETED
     def __init__(self, H, loc_users_t):
         self.H = H
         self.loc_users_t = loc_users_t

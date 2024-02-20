@@ -8,24 +8,39 @@ import matplotlib.pyplot as plt
 
 class Location:
     def __init__(self, BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY, X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY):
+        self.X_LIM = X_LIM
+        self.CU_NO = 1
+        self.mat_cu_ric_loc = np.zeros([self.CU_NO, 2])
+        self.mat_cu_ric_loc[0, :] = X_LIM / 2 # (500,500) in our assumptions it is in the middle
         self.mat_bs_loc = np.zeros([BS_NO, 2])
         self.mat_du_loc = np.zeros([DU_NO, 2])
+        self.distances_ric_du = np.zeros([DU_NO])
+        self.distances_du_ru = np.zeros([DU_NO, BS_NO])
         self.BS_NO = BS_NO
         self.DU_NO = DU_NO
         self.RU_PER_DU_NO = RU_PER_DU_NO        
         self.du_ru_adj_matrix = np.zeros((self.DU_NO, self.BS_NO))# Create an adjacency matrix to connect RUs to DUs based on distances
         self.ric_du_adj_matrix = np.zeros((1, self.DU_NO))
+        self.mat_fh_links_capacity = np.zeros((self.DU_NO, self.BS_NO))
+        self.mat_e2_links_capacity = np.zeros((1, self.DU_NO))    
         self.FH_BW_CAPACITY = FH_BW_CAPACITY
         self.E2_BW_CAPACITY = E2_BW_CAPACITY
         self.PRB_NO = PRB_NO
-        self.USER_NO = USER_NO
-        self.X_LIM = X_LIM
+        self.USER_NO = USER_NO        
         self.eta = ETA_AREA # power of additive white Gaussian noise (AWGN) #eta in paper # 3 for rural areas
         self.scale = RAYLEIGH_SCALE #2 # sigma in rayleigh distribution formula. 1 by default
         self.V = np.zeros([USER_NO]) #each user have a velocity
         self.angle = np.zeros([USER_NO])  # angle in degrees
+        # Define parameters for normal distribution
+        mean_angle = 0  # Mean angle
+        std_dev_angle = 30  # Standard deviation of angle
         for u in range(self.USER_NO):
-            self.angle[u] = random.uniform(0, 360)  # Random angle between 0 and 360 degrees
+            # Generate random angle with normal distribution
+            angle_noise = np.random.normal(mean_angle, std_dev_angle)
+            # Adjust angle to stay close to 0
+            angle = angle_noise if abs(angle_noise) <= 90 else np.sign(angle_noise) * (180 - abs(angle_noise))
+            self.angle[u] = angle
+            #BEFORE: self.angle[u] = random.uniform(0, 360)  # Random angle between 0 and 360 degrees
             if VELOCITY == -1:
                 self.V[u] = random.uniform(0, 40)
             else:
@@ -81,6 +96,19 @@ class Location:
                     break
         return self.mat_du_loc    
     
+    def ric_du_distance(self):
+        ric_x, ric_y = self.mat_cu_ric_loc[0]
+        self.distances_ric_du = [distance.euclidean((ric_x, ric_y), (du_x, du_y)) for du_x, du_y in self.mat_du_loc]
+        return self.distances_ric_du
+    
+    def du_ru_distance(self):
+        for i in range(self.DU_NO):
+            du_x, du_y = self.mat_du_loc[i]
+            # Calculate distances between DU and RUs
+            distances = [distance.euclidean((du_x, du_y), (bs_x, bs_y)) for bs_x, bs_y in self.mat_bs_loc]
+            self.distances_du_ru[i, :] = distances
+        return self.distances_du_ru
+
     def adj_matrix(self):        
         for i in range(self.DU_NO):
             du_x, du_y = self.mat_du_loc[i]
@@ -272,6 +300,7 @@ class RateCalculation:
         self.SINR_dB = np.zeros([self.USER_NO])
         self.signal_strength_dB = np.zeros([self.USER_NO])
         self.interference_dB = np.zeros([self.USER_NO])
+        self.noise_plus_interference_dB = np.zeros([self.USER_NO])
         self.associator = associator
 
     def calculate_interference(self, b, k, u): #BS, PRB, user
@@ -289,9 +318,11 @@ class RateCalculation:
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
                         I_inter = RateCalculation.calculate_interference(self, b, k, u)
+                        self.interference_dB[u] = 10 * np.log10(I_inter)
                         self.signal_strength = self.P[b, k, u] * self.rho[b, k, u] * self.H[b, k, u]
                         self.signal_strength_dB[u] = 10 * np.log10(self.signal_strength)
                         self.noise_plus_interference = (I_inter + (self.SIGMA_NOISE * self.BW))
+                        self.noise_plus_interference_dB = 10 * np.log10(self.noise_plus_interference)
                         self.SINR = self.signal_strength / self.noise_plus_interference #10e(-12.4) for SIGMA_NOISE
                         self.SINR_dB[u] = 10 * np.log10(self.SINR)
                         self.rate_prb = self.BW * np.log2(1 + self.SINR)
@@ -299,4 +330,4 @@ class RateCalculation:
                         self.mat_rate[u] += self.rate_prb
 
         self.mat_rate = self.mat_rate / 1e6 # Convert to Mbps
-        return self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB
+        return self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB
