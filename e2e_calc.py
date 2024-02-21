@@ -1,5 +1,4 @@
 import numpy as np
-import networkx as nx
 from radio_calc import Location
 
 
