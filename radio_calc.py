@@ -252,6 +252,9 @@ class RateCalculation:
         self.interference_dB = np.zeros([self.USER_NO])
         self.noise_plus_interference_dB = np.zeros([self.USER_NO])
         self.associator = associator
+        # Initialize variables for PRB usage tracking
+        self.used_prbs_per_user_per_bs = np.zeros([self.BS_NO, self.USER_NO])
+        self.num_prbs_used_per_user = np.zeros([self.USER_NO])
 
     def calculate_interference(self, b, k, u): #BS, PRB, user
         I_inter = 0 # inter-cell interference
@@ -264,6 +267,7 @@ class RateCalculation:
 
     def _(self):
         for u in range(self.USER_NO):
+            num_prbs_of_user_temp = 0 # Track the number of PRBs used by this user in this timestep
             for b in range(self.BS_NO):
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
@@ -278,6 +282,10 @@ class RateCalculation:
                         self.rate_prb = self.BW * np.log2(1 + self.SINR)
                         self.mat_rate_prb[k, u] = self.rate_prb
                         self.mat_rate[u] += self.rate_prb
-
+                        # Track the number of used PRBs per user
+                        if self.rho[b, k, u] > 0:
+                            self.used_prbs_per_user_per_bs[b, u] += 1
+                            num_prbs_of_user_temp += 1
+            self.num_prbs_used_per_user[u] = num_prbs_of_user_temp
         self.mat_rate = self.mat_rate / 1e6 # Convert to Mbps
-        return self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB
+        return self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user

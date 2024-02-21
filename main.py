@@ -91,7 +91,15 @@ class _main_:
         self.mat_gain = np.zeros([MC, USER_NO, PRB_NO, T])
         self.mat_rho  = np.zeros([MC, BS_NO, PRB_NO, USER_NO, T])
         self.mat_u_bs_dist = np.zeros([MC, USER_NO, T])
-        # ----------------------
+        # -------------
+        # Initialize matrices for SAC
+        self.mat_used_prbs_per_user_per_bs = np.zeros((MC, BS_NO, USER_NO, T))
+        self.mat_used_prbs_per_user = np.zeros((MC, USER_NO, T))
+
+        # Initialize matrices for SAC_pred
+        self.mat_used_prbs_per_user_per_bs_pred = np.zeros((MC, BS_NO, USER_NO, T))
+        self.mat_used_prbs_per_user_pred = np.zeros((MC, USER_NO, T))
+        #---------
         self.mat_reward_pred = -100 * np.ones([MC, T])
         self.mat_satisfied_prb_constraint_pred = np.zeros([MC, T])
         self.mat_satisfied_power_constraint_pred = np.zeros([MC, T])
@@ -187,7 +195,9 @@ class _main_:
                     if self.done_user_power_allocation == 1:
                         self.mat_satisfied_power_constraint[m, t] = 1
                         RC = RateCalculation(self.P, self.rho, self.H, self.associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
-                        self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB = RC._()
+                        self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user = RC._()
+                        self.mat_used_prbs_per_user_per_bs[m, :, :, t] = self.used_prbs_per_user_per_bs
+                        self.mat_used_prbs_per_user[m, :, t] = self.num_prbs_used_per_user
                         self.shannon[m, :, t] = self.mat_rate  # b,k,u (in Mbps)
                         # -------------------------------------
                         self.mat_bs_loc = LC.bs_location()
@@ -263,8 +273,9 @@ class _main_:
                     if self.done_user_power_allocation_pred == 1:
                         self.mat_satisfied_power_constraint_pred[m, t] = 1
                         RC_pred = RateCalculation(self.P_pred, self.rho_pred, self.H_pred, self.associator_pred, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
-                        self.mat_rate_pred, self.mat_rate_prb_pred, self.SINR_dB_pred, self.signal_strength_dB_pred, self.interference_dB_pred, self.noise_plus_interference_dB_pred  = RC_pred._() # m, u, t
-
+                        self.mat_rate_pred, self.mat_rate_prb_pred, self.SINR_dB_pred, self.signal_strength_dB_pred, self.interference_dB_pred, self.noise_plus_interference_dB_pred, self.used_prbs_per_user_per_bs_pred, self.num_prbs_used_per_user_pred  = RC_pred._() # m, u, t
+                        self.mat_used_prbs_per_user_per_bs_pred[m, :, :, t] = self.used_prbs_per_user_per_bs_pred
+                        self.mat_used_prbs_per_user_pred[m, :, t] = self.num_prbs_used_per_user_pred
                         self.shannon_pred[m, :, t] = self.mat_rate_pred
                         #--------------------------------------
                         D_pred = Delay(self.mat_rate_pred, FH_BW_CAPACITY, E2_BW_CAPACITY, self.mat_specs, self.associator_pred, 
@@ -361,10 +372,44 @@ class _main_:
 M = _main_(MC, T)
 mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, mat_delay_tot, mat_delay_tot_pred = M._()
 
-# %PLOTTING THE RESULTS%%
+# %%%%%%%
+
+# save for later (use savez_compressed for compression)
+filename = f'O-RAN SAC (Normal and Proactive), RAYLEIGH={RAYLEIGH_SCALE}, U={USER_NO}, PRB={PRB_NO}, T={T}, VELOCITY={VELOCITY}, OMEGA_1={OMEGA_1}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
+np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, mat_u_bs_dist_pred=mat_u_bs_dist_pred, shannon=shannon, shannon_pred=shannon_pred, mat_gain=mat_gain, mat_gain_pred=mat_gain_pred, mat_power=mat_power, mat_power_pred=mat_power_pred, mat_reward=mat_reward, mat_reward_pred=mat_reward_pred, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred=mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint=mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred=mat_satisfied_power_constraint_pred,
+                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, mat_delay_tot=mat_delay_tot, mat_delay_tot_pred=mat_delay_tot_pred)
+
+#%% %PLOTTING THE RESULTS%%
 window_size = 200  # (for smoothing the curves in the plots)
 #####
+# %%%%RUNTIME DURATION%%%%%%%
+# Calculate the average episode runtime and its moving average
+mean_mat_episode_runtime = moving_average(np.average(mat_episode_runtime, axis=0), window_size)
 
+# Plot the data using your custom plot function
+plot_graph("Runtime Duration",
+           [mean_mat_episode_runtime],
+           ['Average runtime duration: {:.2f} ms'.format(1000 * np.average(mat_episode_runtime))],
+           ['blue'],
+           ['solid'],
+           "Episode",
+           "Runtime duration (ms)")
+#PRB Allocation?
+plot_graph("Average Number of PRBs per User per BS",
+           [np.mean(self.mat_used_prbs_per_user_per_bs, axis=(0, 1))[:, :, t] for t in range(T-1)],
+           ['BS {}'.format(i) for i in range(BS_NO)],
+           ['blue', 'green', 'orange'],  # Colors for each BS
+           ['solid'] * BS_NO,  # Solid linestyle for each BS
+           "BS Number",
+           "Average Number of PRBs per User")
+
+plot_graph("Total Number of PRBs per User",
+           [np.mean(self.mat_used_prbs_per_user, axis=0)[:, t] for t in range(T-1)],
+           ['SAC', 'SAC_pred'],  # Labels for SAC and SAC_pred
+           ['blue', 'green'],  # Colors for SAC and SAC_pred
+           ['solid', 'solid'],  # Solid linestyle for SAC and SAC_pred
+           "Episode",
+           "Total Number of PRBs per User")
 # %%REWARD%%%%
 mat_reward_average_over_m = np.average(mat_reward, axis=0)
 mat_reward_average_over_m_pred = np.average(mat_reward_pred, axis=0)
@@ -435,26 +480,8 @@ plot_graph("Average E2E Delay of Users",
            ['solid', 'solid'],
            "Episode",
            "Average E2E Delay of Users (ms)")
-# %%%%RUNTIME DURATION%%%%%%%
-#window_size = 200
-# Calculate the average episode runtime and its moving average
-mean_mat_episode_runtime = moving_average(np.average(mat_episode_runtime, axis=0), window_size)
 
-# Plot the data using your custom plot function
-plot_graph("Runtime Duration",
-           [mean_mat_episode_runtime],
-           ['Average runtime duration: {:.2f} ms'.format(1000 * np.average(mat_episode_runtime))],
-           ['blue'],
-           ['solid'],
-           "Episode",
-           "Runtime duration (ms)")
 
 
 print(style.UNDERLINE + "Total time for {} timeslots/episodes ({} users) in {} Monte-Carlo iterations: {}".format(T, USER_NO, MC, convert_seconds(np.sum(mat_episode_runtime))))
 
-# %%%%%%%
-
-# save for later (use savez_compressed for compression)
-filename = f'O-RAN SAC (Normal and Proactive), RAYLEIGH={RAYLEIGH_SCALE}, U={USER_NO}, PRB={PRB_NO}, T={T}, VELOCITY={VELOCITY}, OMEGA_1={OMEGA_1}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
-np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, mat_u_bs_dist_pred=mat_u_bs_dist_pred, shannon=shannon, shannon_pred=shannon_pred, mat_gain=mat_gain, mat_gain_pred=mat_gain_pred, mat_power=mat_power, mat_power_pred=mat_power_pred, mat_reward=mat_reward, mat_reward_pred=mat_reward_pred, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred=mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint=mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred=mat_satisfied_power_constraint_pred,
-                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, mat_delay_tot=mat_delay_tot, mat_delay_tot_pred=mat_delay_tot_pred)
