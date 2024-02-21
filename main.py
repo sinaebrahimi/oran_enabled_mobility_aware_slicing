@@ -114,14 +114,12 @@ class _main_:
         #self.list_rate = []
         # ---------------------------------------------------------
         self.monte_mat_delay_tot = np.zeros([MC, USER_NO, T])
-        self.delay_satisfaction_ratio = np.zeros([MC, T])
 #        self.list_delay = []
         # ---------
         #self.monte_mat_rate_pred = np.zeros([MC, T, USER_NO])
         #self.list_rate_pred = []
         # ---------------------------------------------------------
         self.monte_mat_delay_tot_pred = np.zeros([MC, USER_NO, T])
-        self.delay_satisfaction_ratio_pred = np.zeros([MC, T])
         # ----------obtaining the number of actions--------------
         self.e1 = BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
         self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
@@ -144,10 +142,9 @@ class _main_:
         # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
             self.decay_var = DECAY_VAR
             for t in range(T-1):
-                print(style.YELLOW + str(t))
                 start_time = time.time()
                 self.tt = t + 1
-                if np.mod(t, 500) == 0:
+                if np.mod(t, 100) == 0:
                     print(style.RED + str(t))
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
                 self.reward = -100
@@ -205,11 +202,10 @@ class _main_:
                         #self.mat_placement, self.W_link, self.mat_links_capacity, self.mat_nodes_and_vms_capacity, self.mat_specs, self.path, self.associator, self.mat_distance, USER_NO, VNF_NO, BS_NO)
                         cnt_u, done_delay_all,  self.mat_delay_tot = D._()
                         self.monte_mat_delay_tot[m, :, t] = self.mat_delay_tot                        
-                        self.delay_satisfaction_ratio[m,t] = cnt_u / USER_NO
+                        self.mat_satisfied_delay_constraint[m,t] = cnt_u / USER_NO
                         # -------------------------------------
                         #if done_delay_all == 1:
-                        if self.delay_satisfaction_ratio[m,t] > 0.8: # or any other threshold!
-                            self.mat_satisfied_delay_constraint[m, t] = 1
+                        if self.mat_satisfied_delay_constraint[m,t] > 0.8: # or any other threshold!
                             self.sigma_SSL_R = 0
                             for s in range(SLICE_NO):
                                 for u in range(USER_NO):
@@ -239,8 +235,7 @@ class _main_:
                             if self.mat_ssl[m, t] >= 0.5:
                                 # C10 constraint
                                 self.reward += 100 * self.mat_ssl[m, t] # between 0 and 100
-                                print(
-                                    style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
+                                print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
                                 self.mat_reward[m, t] = self.reward
                             #else:
                             #    self.reward = 0
@@ -277,12 +272,11 @@ class _main_:
                                   USER_NO, BS_NO, DU_NO)
                         cnt_u_pred, done_delay_all_pred,  self.mat_delay_tot_pred = D_pred._()
                         self.monte_mat_delay_tot_pred[m, :, t] = self.mat_delay_tot_pred
-                        self.delay_satisfaction_ratio_pred[m,t] = cnt_u_pred / USER_NO
+                        self.mat_satisfied_delay_constraint_pred[m,t] = cnt_u_pred / USER_NO
                         # -------------------------------------
                         self.monte_mat_delay_tot_pred[m, :, t] = self.mat_delay_tot_pred
                         #done_delay_dummy = 1  # just tweaking. to not comment the next line
-                        if self.delay_satisfaction_ratio_pred[m,t] > 0.8:
-                            self.mat_satisfied_delay_constraint_pred[m, t] = 1
+                        if self.mat_satisfied_delay_constraint_pred[m,t] > 0.8:
                             self.sigma_SSL_R_pred = 0
                             for s in range(SLICE_NO):
                                 for u in range(USER_NO):
@@ -368,563 +362,94 @@ M = _main_(MC, T)
 mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, mat_delay_tot, mat_delay_tot_pred = M._()
 
 # %PLOTTING THE RESULTS%%
-# shannon_0 = np.sum(shannon , axis=0)
-# variance_shannon_over_t = np.std(shannon_0) #var on all users
-# variance for all episodes and users (matrix)
-variance_shannon = np.std(shannon)
-mem_shannon_t = []
-mem_shannon_t_min = []
-mem_shannon_t_avg = []
-mem_shannon_t_max = []
-
-mem_shannon_u = []
-mem_shannon_u_min = []
-mem_shannon_u_avg = []
-mem_shannon_u_max = []
-
-
-
-#for t in range(T):
-#    mem_shannon_t.append(np.std(shannon[:, :, t])) # m, u, t
-#    mem_shannon_t_min.append(np.min(shannon[:, :, t]))
-#    mem_shannon_t_avg.append(np.average(shannon[:, :, t]))
-#    mem_shannon_t_max.append(np.max(shannon[:, :, t]))
-
-for u in range(USER_NO):
-    mem_shannon_u.append(np.std(shannon[:, u, :]))
-    mem_shannon_u_min.append(np.min(shannon[:, u, :]))
-    mem_shannon_u_avg.append(np.average(shannon[:, u, :]))
-    mem_shannon_u_max.append(np.max(shannon[:, u, :]))
-
-
-# Define moving average function
-# def moving_average(data, window_size):
-#     cumsum_vec = np.cumsum(np.insert(data, 0, 0))
-#     ma_vec = (cumsum_vec[window_size:] -
-#               cumsum_vec[:-window_size]) / window_size
-#     return ma_vec
-
-
-window_size = 50
-# Calculate moving average with specified window size
-#mem_shannon_t_smooth = moving_average(mem_shannon_t, window_size)
-#mem_shannon_t_min_smooth = moving_average(mem_shannon_t_min, window_size)
-#mem_shannon_t_avg_smooth = moving_average(mem_shannon_t_avg, window_size)
-#mem_shannon_t_max_smooth = moving_average(mem_shannon_t_max, window_size)
-
-# Plot smoothed data
-#plt.plot(mem_shannon_t_smooth, label='Variance')
-#plt.plot(mem_shannon_t_min_smooth, label='min')
-#plt.plot(mem_shannon_t_avg_smooth, label='avg')
-#plt.plot(mem_shannon_t_max_smooth, label='max')
-#plt.xlabel("Episode")
-#plt.ylabel("Data rate (Mbps) (Shannon Formula)")
-#plt.legend()
-#plt.show()
-
-plt.plot(mem_shannon_u, label='Variance')
-plt.plot(mem_shannon_u_min, label='min')
-plt.plot(mem_shannon_u_avg, label='avg')
-plt.plot(mem_shannon_u_max, label='max')
-plt.legend()
-plt.xlabel("User #")
-plt.ylabel("Data rate (Mbps) (Shannon Formula)")
-plt.show()
-
-print("\===============Shannon Variance for all users and episodes (matrix)==================")
-print("Shannon Variance:", variance_shannon)
-
-
-#########
-#
-# variance for all episodes and users (matrix)
-variance_mat_u_bs_dist = np.std(mat_u_bs_dist)
-mem_mat_u_bs_dist_t = []
-mem_mat_u_bs_dist_t_min = []
-mem_mat_u_bs_dist_t_avg = []
-mem_mat_u_bs_dist_t_max = []
-
-mem_mat_u_bs_dist_u = []
-mem_mat_u_bs_dist_u_min = []
-mem_mat_u_bs_dist_u_avg = []
-mem_mat_u_bs_dist_u_max = []
-for t in range(T):
-    mem_mat_u_bs_dist_t.append(np.std(mat_u_bs_dist[:, :, t]))
-    mem_mat_u_bs_dist_t_min.append(np.min(mat_u_bs_dist[:, :, t]))
-    mem_mat_u_bs_dist_t_avg.append(np.average(mat_u_bs_dist[:, :, t]))
-    mem_mat_u_bs_dist_t_max.append(np.max(mat_u_bs_dist[:, :, t]))
-
-for u in range(USER_NO):
-    mem_mat_u_bs_dist_u.append(np.std(mat_u_bs_dist[:, u, :]))
-    mem_mat_u_bs_dist_u_min.append(np.min(mat_u_bs_dist[:, u, :]))
-    mem_mat_u_bs_dist_u_avg.append(np.average(mat_u_bs_dist[:, u, :]))
-    mem_mat_u_bs_dist_u_max.append(np.max(mat_u_bs_dist[:, u, :]))
-
-# Calculate moving average with specified window size
-mem_mat_u_bs_dist_t_smooth = moving_average(mem_mat_u_bs_dist_t, window_size)
-mem_mat_u_bs_dist_t_min_smooth = moving_average(
-    mem_mat_u_bs_dist_t_min, window_size)
-mem_mat_u_bs_dist_t_avg_smooth = moving_average(
-    mem_mat_u_bs_dist_t_avg, window_size)
-mem_mat_u_bs_dist_t_max_smooth = moving_average(
-    mem_mat_u_bs_dist_t_max, window_size)
-
-# Plot smoothed data
-print('Distance of users with the selcted BS (analysis on episodes):\n')
-plt.plot(mem_mat_u_bs_dist_t_smooth, label='Variance')
-plt.plot(mem_mat_u_bs_dist_t_min_smooth, label='min')
-plt.plot(mem_mat_u_bs_dist_t_avg_smooth, label='avg')
-plt.plot(mem_mat_u_bs_dist_t_max_smooth, label='max')
-plt.xlabel("Episode")
-plt.ylabel("Distance (m)")
-plt.legend()
-plt.show()
-
-print('Distance of users with the selcted BS (analysis on users):\n')
-
-plt.plot(mem_mat_u_bs_dist_u, label='Variance')
-plt.plot(mem_mat_u_bs_dist_u_min, label='min')
-plt.plot(mem_mat_u_bs_dist_u_avg, label='avg')
-plt.plot(mem_mat_u_bs_dist_u_max, label='max')
-plt.legend()
-plt.xlabel("User #")
-plt.ylabel("Distance (m)")
-plt.show()
-
-print("\===============mat_u_bs_dist Variance for all users and episodes (matrix)==================")
-print("mat_u_bs_dist Variance:", variance_mat_u_bs_dist)
-
-
-######
-
-avg_mat_u_bs_dist = np.average(mat_u_bs_dist, axis=(0,1))
-max_mat_u_bs_dist = np.max(mat_u_bs_dist, axis=(0,1))
-min_mat_u_bs_dist = np.min(mat_u_bs_dist, axis=(0,1))
-
-avg_mat_u_bs_dist_pred = np.average(mat_u_bs_dist_pred, axis=(0,1))
-max_mat_u_bs_dist_pred = np.max(mat_u_bs_dist_pred, axis=(0,1))
-min_mat_u_bs_dist_pred = np.min(mat_u_bs_dist_pred, axis=(0,1))
-# Compute the moving average for each data series
-min_mat_u_bs_dist_smooth = np.convolve(
-    min_mat_u_bs_dist, np.ones(window_size)/window_size, mode='same')
-max_mat_u_bs_dist_smooth = np.convolve(
-    max_mat_u_bs_dist, np.ones(window_size)/window_size, mode='same')
-avg_mat_u_bs_dist_smooth = np.convolve(
-    avg_mat_u_bs_dist, np.ones(window_size)/window_size, mode='same')
-
-# sum_mat_u_bs_dist_pred_smooth = np.convolve(
-#     sum_mat_u_bs_dist_pred, np.ones(window_size)/window_size, mode='same')
-#-----------------------------------------------------------------------------------------------
-min_mat_u_bs_dist_pred_smooth = np.convolve(
-    min_mat_u_bs_dist_pred, np.ones(window_size)/window_size, mode='same')
-max_mat_u_bs_dist_pred_smooth = np.convolve(
-    max_mat_u_bs_dist_pred, np.ones(window_size)/window_size, mode='same')
-avg_mat_u_bs_dist_pred_smooth = np.convolve(
-    avg_mat_u_bs_dist_pred, np.ones(window_size)/window_size, mode='same')
-
-# Create a figure and axis
-fig, ax = plt.subplots()
-
-# plt.plot(mat_u_bs_dist[0,:])
-# plt.plot(mat_u_bs_dist[1,:])
-# plt.plot(mat_u_bs_dist[2,:])
-# plt.plot(mat_u_bs_dist[3,:])
-# plt.plot(mat_u_bs_dist[4,:])
-# plt.show()
-
-# Plot the smoothed values with different colors and a solid line style
-# ax.plot(sum_mat_u_bs_dist_smooth, color='blue', linestyle='solid', label='Sum')
-ax.plot(min_mat_u_bs_dist_smooth, color='green',
-        linestyle='solid', label='Min')
-ax.plot(max_mat_u_bs_dist_smooth, color='red', linestyle='solid', label='Max')
-ax.plot(avg_mat_u_bs_dist_smooth, color='orange',
-        linestyle='solid', label='Avg')
-
-# Plot the smoothed _pred values with different colors and a dotted line style
-# ax.plot(sum_mat_u_bs_dist_pred_smooth, color='blue', linestyle='dotted', label='Sum (Pred)')
-ax.plot(min_mat_u_bs_dist_pred_smooth, color='green',
-        linestyle='dotted', label='Min (Pred)')
-ax.plot(max_mat_u_bs_dist_pred_smooth, color='red',
-        linestyle='dotted', label='Max (Pred)')
-ax.plot(avg_mat_u_bs_dist_pred_smooth, color='orange',
-        linestyle='dotted', label='Avg (Pred)')
-
-# Set the x and y labels
-ax.set_xlabel("Episode")
-ax.set_ylabel("mat_u_bs_dist of users x(m)")
-
-# Add a legend
-ax.legend()
-
-# Show the plot
-plt.show()
+window_size = 200  # (for smoothing the curves in the plots)
 #####
-# shannon (rate)
-# rate:
-window_size = 50
-sum_rate = np.sum(shannon, axis=(0,1))
-std_rate = np.std(shannon, axis=(0,1))
-avg_rate = np.average(shannon, axis=(0,1))
-max_rate = np.max(shannon, axis=(0,1))
-min_rate = np.min(shannon, axis=(0,1))
-
-sum_rate_pred = np.sum(shannon_pred, axis=(0,1))
-std_rate_pred = np.std(shannon_pred, axis=(0,1))
-avg_rate_pred = np.average(shannon_pred, axis=(0,1))
-max_rate_pred = np.max(shannon_pred, axis=(0,1))
-min_rate_pred = np.min(shannon_pred, axis=(0,1))
-# Compute the moving average for each data series
-sum_rate_smooth = np.convolve(sum_rate, np.ones(
-    window_size)/window_size, mode='same')
-std_rate_smooth = np.convolve(std_rate, np.ones(
-    window_size)/window_size, mode='same')
-min_rate_smooth = np.convolve(min_rate, np.ones(
-    window_size)/window_size, mode='same')
-max_rate_smooth = np.convolve(max_rate, np.ones(
-    window_size)/window_size, mode='same')
-avg_rate_smooth = np.convolve(avg_rate, np.ones(
-    window_size)/window_size, mode='same')
-
-sum_rate_pred_smooth = np.convolve(
-    sum_rate_pred, np.ones(window_size)/window_size, mode='same')
-std_rate_pred_smooth = np.convolve(
-    std_rate_pred, np.ones(window_size)/window_size, mode='same')
-min_rate_pred_smooth = np.convolve(
-    min_rate_pred, np.ones(window_size)/window_size, mode='same')
-max_rate_pred_smooth = np.convolve(
-    max_rate_pred, np.ones(window_size)/window_size, mode='same')
-avg_rate_pred_smooth = np.convolve(
-    avg_rate_pred, np.ones(window_size)/window_size, mode='same')
-
-# Create a figure and axis
-fig, ax = plt.subplots()
-
-# plt.plot(shannon[0,:])
-# plt.plot(shannon[1,:])
-# plt.plot(shannon[2,:])
-# plt.plot(shannon[3,:])
-# plt.plot(shannon[4,:])
-# plt.show()
-
-# Plot the smoothed values with different colors and a solid line style
-# ax.plot(sum_rate_smooth, color='blue', linestyle='solid', label='Sum')
-ax.plot(std_rate_smooth, color='blue', linestyle='solid', label='Variance')
-ax.plot(min_rate_smooth, color='green', linestyle='solid', label='Min')
-ax.plot(max_rate_smooth, color='red', linestyle='solid', label='Max')
-ax.plot(avg_rate_smooth, color='orange', linestyle='solid', label='Avg')
-
-# Plot the smoothed _pred values with different colors and a dotted line style
-# ax.plot(sum_rate_pred_smooth, color='blue', linestyle='dotted', label='Sum (Pred)')
-ax.plot(std_rate_pred_smooth, color='blue',
-        linestyle='dotted', label='Variance (Pred)')
-ax.plot(min_rate_pred_smooth, color='green',
-        linestyle='dotted', label='Min (Pred)')
-ax.plot(max_rate_pred_smooth, color='red',
-        linestyle='dotted', label='Max (Pred)')
-ax.plot(avg_rate_pred_smooth, color='orange',
-        linestyle='dotted', label='Avg (Pred)')
-
-# Set the x and y labels
-ax.set_xlabel("Episode")
-ax.set_ylabel("Rate of users (Mbps)")
-
-# Add a legend
-ax.legend()
-
-# Show the plot
-plt.show()
-
-####
-fig, ax1 = plt.subplots()
-
-ax1.plot(sum_rate_smooth, color='blue', linestyle='solid', label='Sum')
-ax1.plot(sum_rate_pred_smooth, color='blue',
-         linestyle='dotted', label='Sum (Pred)')
-# Set the x and y labels
-ax1.set_xlabel("Episode")
-ax1.set_ylabel("sum rate of users")
-
-# Add a legend
-ax1.legend()
-
-# Show the plot
-plt.show()
-
-
-# POWER:
-window_size = 50
-sum_power = np.sum(mat_power, axis=(0,1))
-avg_power = np.mean(mat_power, axis=(0,1))
-max_power = np.max(mat_power, axis=(0,1))
-min_power = np.min(mat_power, axis=(0,1))
-
-
-sum_power_pred = np.sum(mat_power_pred, axis=(0,1))
-avg_power_pred = np.mean(mat_power_pred, axis=(0,1))
-max_power_pred = np.max(mat_power_pred, axis=(0,1))
-min_power_pred = np.min(mat_power_pred, axis=(0,1))
-# Compute the moving average for each data series
-sum_power_smooth = np.convolve(sum_power, np.ones(
-    window_size)/window_size, mode='same')
-min_power_smooth = np.convolve(min_power, np.ones(
-    window_size)/window_size, mode='same')
-max_power_smooth = np.convolve(max_power, np.ones(
-    window_size)/window_size, mode='same')
-avg_power_smooth = np.convolve(avg_power, np.ones(
-    window_size)/window_size, mode='same')
-
-sum_power_pred_smooth = np.convolve(
-    sum_power_pred, np.ones(window_size)/window_size, mode='same')
-min_power_pred_smooth = np.convolve(
-    min_power_pred, np.ones(window_size)/window_size, mode='same')
-max_power_pred_smooth = np.convolve(
-    max_power_pred, np.ones(window_size)/window_size, mode='same')
-avg_power_pred_smooth = np.convolve(
-    avg_power_pred, np.ones(window_size)/window_size, mode='same')
-
-# Create a figure and axis
-fig, ax = plt.subplots()
-
-# Plot the smoothed values with different colors and a solid line style
-ax.plot(sum_power_smooth, color='blue', linestyle='solid', label='Sum')
-ax.plot(min_power_smooth, color='green', linestyle='solid', label='Min')
-ax.plot(max_power_smooth, color='red', linestyle='solid', label='Max')
-ax.plot(avg_power_smooth, color='orange', linestyle='solid', label='Avg')
-
-# Plot the smoothed _pred values with different colors and a dotted line style
-ax.plot(sum_power_pred_smooth, color='blue',
-        linestyle='dotted', label='Sum (Pred)')
-ax.plot(min_power_pred_smooth, color='green',
-        linestyle='dotted', label='Min (Pred)')
-ax.plot(max_power_pred_smooth, color='red',
-        linestyle='dotted', label='Max (Pred)')
-ax.plot(avg_power_pred_smooth, color='orange',
-        linestyle='dotted', label='Avg (Pred)')
-
-# Set the x and y labels
-ax.set_xlabel("Episode")
-ax.set_ylabel("power of users")
-
-# Add a legend
-ax.legend()
-
-# Show the plot
-plt.show()
-
-
-#sum_gain = np.sum(mat_gain, axis=0) #m,u,k,t
-#avg_gain = np.mean(mat_gain, axis=0)
-#max_gain = np.max(mat_gain, axis=0)
-#min_gain = np.min(mat_gain, axis=0)
-#
-#
-#sum_gain_pred = np.sum(mat_gain_pred, axis=0)
-#avg_gain_pred = np.mean(mat_gain_pred, axis=0)
-#max_gain_pred = np.max(mat_gain_pred, axis=0)
-#min_gain_pred = np.min(mat_gain_pred, axis=0)
-## Compute the moving average for each data series
-#sum_gain_smooth = np.convolve(sum_gain, np.ones(
-#    window_size)/window_size, mode='same')
-#min_gain_smooth = np.convolve(min_gain, np.ones(
-#    window_size)/window_size, mode='same')
-#max_gain_smooth = np.convolve(max_gain, np.ones(
-#    window_size)/window_size, mode='same')
-#avg_gain_smooth = np.convolve(avg_gain, np.ones(
-#    window_size)/window_size, mode='same')
-#
-#sum_gain_pred_smooth = np.convolve(
-#    sum_gain_pred, np.ones(window_size)/window_size, mode='same')
-#min_gain_pred_smooth = np.convolve(
-#    min_gain_pred, np.ones(window_size)/window_size, mode='same')
-#max_gain_pred_smooth = np.convolve(
-#    max_gain_pred, np.ones(window_size)/window_size, mode='same')
-#avg_gain_pred_smooth = np.convolve(
-#    avg_gain_pred, np.ones(window_size)/window_size, mode='same')
-#
-## Create a figure and axis
-#fig, ax = plt.subplots()
-#
-## Plot the smoothed values with different colors and a solid line style
-#ax.plot(sum_gain_smooth, color='blue', linestyle='solid', label='Sum')
-#ax.plot(min_gain_smooth, color='green', linestyle='solid', label='Min')
-#ax.plot(max_gain_smooth, color='red', linestyle='solid', label='Max')
-#ax.plot(avg_gain_smooth, color='orange', linestyle='solid', label='Avg')
-#
-## Plot the smoothed _pred values with different colors and a dotted line style
-#ax.plot(sum_gain_pred_smooth, color='blue',
-#        linestyle='dotted', label='Sum (Pred)')
-#ax.plot(min_gain_pred_smooth, color='green',
-#        linestyle='dotted', label='Min (Pred)')
-#ax.plot(max_gain_pred_smooth, color='red',
-#        linestyle='dotted', label='Max (Pred)')
-#ax.plot(avg_gain_pred_smooth, color='orange',
-#        linestyle='dotted', label='Avg (Pred)')
-#
-## Set the x and y labels
-#ax.set_xlabel("Episode")
-#ax.set_ylabel("Channel gain")
-#
-## Add a legend
-#ax.legend()
-#
-## Show the plot
-#plt.show()
 
 # %%REWARD%%%%
-# ep_rewardall = mat_reward
-mat_reward_average_over_m=np.average(mat_reward,axis=0)
-mat_reward_average_over_m_pred=np.average(mat_reward_pred,axis=0)
-#===========================================================
-# aaa = len(ep_rewardall)
-# mean_ep_rewardall = []
-# mean_ep_rewardall_pred = []
-# for i in range(aaa-w):
-#     mean_ep_rewardall.append(np.sum(ep_rewardall[i:-aaa + w+i])/w)
-#     mean_ep_rewardall_pred.append(np.sum(mat_reward_pred[i:-aaa + w+i])/w)
-#===========================================================
-window_size = 200  # 50 (for smoothing the curves)
-mean_ep_rewardall=moving_average(mat_reward_average_over_m,window_size)
-mean_ep_rewardall_pred=moving_average(mat_reward_average_over_m_pred,window_size)
-plt.plot(mean_ep_rewardall, label='SAC')
-plt.plot(mean_ep_rewardall_pred, label='Proactive SAC')
-plt.xlabel("Episode")
-plt.ylabel("Mean episodic rewards")
-plt.legend()
-plt.show()
+mat_reward_average_over_m = np.average(mat_reward, axis=0)
+mat_reward_average_over_m_pred = np.average(mat_reward_pred, axis=0)
+
+mean_ep_rewardall = moving_average(mat_reward_average_over_m, window_size)
+mean_ep_rewardall_pred = moving_average(mat_reward_average_over_m_pred, window_size)
+
+plot_graph("Mean episodic rewards",
+           [mean_ep_rewardall, mean_ep_rewardall_pred],
+           ['SAC', 'Proactive SAC'],
+           ['blue', 'green'],
+           ['solid', 'dotted'],
+           "Episode",
+           "Mean episodic rewards")
 # %%CONSTRAINT SATISFACTION%
-mean_ep_prb_const = moving_average(np.average(mat_satisfied_prb_constraint,axis=0), window_size) #[]
-mean_ep_power_const =  moving_average(np.average(mat_satisfied_power_constraint,axis=0), window_size) #[]
-mean_ep_delay_const =  moving_average(np.average(mat_satisfied_delay_constraint,axis=0), window_size) #[]
-# for i in range(aaa-w):
-#     mean_ep_prb_const.append(
-#         (100 * np.sum(mat_satisfied_prb_constraint[i:-aaa + w+i]))/w)
-#     mean_ep_power_const.append(
-#         (100 * np.sum(mat_satisfied_power_constraint[i:-aaa + w+i]))/w)
-#     mean_ep_delay_const.append(
-#         (100 * np.sum(mat_satisfied_delay_constraint[i:-aaa + w+i]))/w)
+mean_ep_prb_const = moving_average(np.average(mat_satisfied_prb_constraint, axis=0), window_size)
+mean_ep_prb_const_pred = moving_average(np.average(mat_satisfied_prb_constraint_pred, axis=0), window_size)
+mean_ep_power_const = moving_average(np.average(mat_satisfied_power_constraint, axis=0), window_size)
+mean_ep_power_const_pred = moving_average(np.average(mat_satisfied_power_constraint_pred, axis=0), window_size)
+mean_ep_delay_const = moving_average(np.average(mat_satisfied_delay_constraint, axis=0), window_size)
+mean_ep_delay_const_pred = moving_average(np.average(mat_satisfied_delay_constraint_pred, axis=0), window_size)
 
-    #=======================
-plt.plot(mean_ep_prb_const, label='PRB satisfaction: {:.2f}%'.format(
-    100 * np.average(mat_satisfied_prb_constraint)))
-plt.plot(mean_ep_power_const, label='Power satisfaction: {:.2f}%'.format(
-    100 * np.average(mat_satisfied_power_constraint)))
-plt.plot(mean_ep_delay_const, label='Delay satisfaction: {:.2f}%'.format(
-    100 * np.average(mat_satisfied_delay_constraint)))
-plt.xlabel("Episode")
-plt.ylabel("Constraint satisfaction (in %) ")
-plt.legend()
-plt.show()
+plot_graph("Constraint Satisfaction",
+           [mean_ep_prb_const, mean_ep_prb_const_pred,
+            mean_ep_power_const, mean_ep_power_const_pred,
+            mean_ep_delay_const, mean_ep_delay_const_pred],
+           ['PRB (SAC)', 'PRB (SAC_pred)',
+            'Power (SAC)', 'Power (SAC_pred)',
+            'Delay (SAC)', 'Delay (SAC_pred)'],
+           ['red', 'red', 'blue', 'blue', 'green', 'green'],
+           ['solid', 'dotted', 'solid', 'dotted', 'solid', 'dotted'],
+           "Episode",
+           "Constraint Satisfaction")
 # %%%%%SSL%%%%%%
-mean_ep_ssl_rate =  moving_average(np.average(mat_ssl_rate,axis=0), window_size)  #[]
-mean_ep_ssl_delay = moving_average(np.average(mat_ssl_delay,axis=0), window_size)#[]
-mean_ep_ssl = moving_average(np.average(mat_ssl,axis=0), window_size)#[]
-mean_ep_ssl_rate_pred = moving_average(np.average(mat_ssl_rate_pred,axis=0), window_size)#[]
-mean_ep_ssl_delay_pred = moving_average(np.average(mat_ssl_delay_pred,axis=0), window_size)#[]
-mean_ep_ssl_pred = moving_average(np.average(mat_ssl_pred,axis=0), window_size)#[]
-#==========================================================
-# for i in range(aaa-w):
-#     mean_ep_ssl_rate.append((np.sum(mat_ssl_rate[i:-aaa + w+i]))/w)
-#     mean_ep_ssl_delay.append((np.sum(mat_ssl_delay[i:-aaa + w+i]))/w)
-#     mean_ep_ssl.append((np.sum(mat_ssl[i:-aaa + w+i]))/w)
-#     mean_ep_ssl_rate_pred.append((np.sum(mat_ssl_rate_pred[i:-aaa + w+i]))/w)
-#     mean_ep_ssl_delay_pred.append((np.sum(mat_ssl_delay_pred[i:-aaa + w+i]))/w)
-#     mean_ep_ssl_pred.append((np.sum(mat_ssl_pred[i:-aaa + w+i]))/w)
+mean_ep_ssl_rate = moving_average(np.average(mat_ssl_rate, axis=0), window_size)
+mean_ep_ssl_delay = moving_average(np.average(mat_ssl_delay, axis=0), window_size)
+mean_ep_ssl = moving_average(np.average(mat_ssl, axis=0), window_size)
+mean_ep_ssl_rate_pred = moving_average(np.average(mat_ssl_rate_pred, axis=0), window_size)
+mean_ep_ssl_delay_pred = moving_average(np.average(mat_ssl_delay_pred, axis=0), window_size)
+mean_ep_ssl_pred = moving_average(np.average(mat_ssl_pred, axis=0), window_size)
 
-
-line1, = plt.plot(mean_ep_ssl_rate, label='SSL_1 (Rate satisfaction); Average: {:.2f}'.format(
-    np.average(mat_ssl_rate)))
-color1 = line1.get_color()  # get its color
-plt.plot(mean_ep_ssl_rate_pred, color=color1, linestyle='--',
-         label='(Proactive) SSL_1 (Rate satisfaction); Average: {:.2f}'.format(np.average(mat_ssl_rate_pred)))
-
-line2, = plt.plot(mean_ep_ssl_delay, label='SSL_2 (Delay satisfaction); Average: {:.2f}'.format(
-    np.average(mat_ssl_delay)))
-color2 = line2.get_color()  # get its color
-plt.plot(mean_ep_ssl_delay_pred, color=color2, linestyle='--',
-         label='(Proactive) SSL_2(Delay satisfaction); Average: {:.2f}'.format(np.average(mat_ssl_delay_pred)))
-
-line3, = plt.plot(mean_ep_ssl, label='SSL (Overall satisfaction); Average: {:.2f}'.format(
-    np.average(mat_ssl)))
-color3 = line3.get_color()  # get its color
-plt.plot(mean_ep_ssl_rate_pred, color=color3, linestyle='--',
-         label='(Proactive) SSL (Overall satisfaction); Average: {:.2f}'.format(np.average(mat_ssl_pred)))
-
-# plt.plot(mean_ep_ssl_delay, label='SSL_2 (Delay satisfaction); Average: {:.2f}'.format(np.average(mat_ssl_delay)))
-# plt.plot(mean_ep_ssl, label='SSL (Overall satisfaction); Average: {:.2f}'.format(np.average(mat_ssl)))
-plt.xlabel("Episode")
-plt.ylabel("SSL")
-plt.legend()
-plt.show()
+plot_graph("SSL Metrics",
+           [mean_ep_ssl_rate, mean_ep_ssl_rate_pred,
+            mean_ep_ssl_delay, mean_ep_ssl_delay_pred,
+            mean_ep_ssl, mean_ep_ssl_pred],
+           ['Rate (SAC)', 'Rate (SAC_pred)',
+            'Delay (SAC)', 'Delay (SAC_pred)',
+            'SSL (SAC)', 'SSL (SAC_pred)'],
+           ['blue', 'blue', 'green', 'green', 'orange', 'orange'],
+           ['solid', 'dotted', 'solid', 'dotted', 'solid', 'dotted'],
+           "Episode",
+           "SSL Metrics")
 
 # %%%%%Delay%%%%%%
-mat_delay_tot_average_over_m=np.average(mat_delay_tot, axis=0)#m,u,t
-mat_delay_tot_average_over_m_over_u = np.average(mat_delay_tot_average_over_m, axis=0)
-mean_mat_delay_tot_average_over_m_over_u = moving_average(mat_delay_tot_average_over_m_over_u, window_size)
+# For SAC
+mat_delay_tot_average_over_m = np.average(mat_delay_tot, axis=(0, 1))
+mean_mat_delay_tot_average_over_m_over_u = moving_average(mat_delay_tot_average_over_m, window_size)
 
-mat_delay_tot_pred_average_over_m=np.average(mat_delay_tot_pred, axis=0)#m,u,t
-mat_delay_tot_pred_average_over_m_over_u = np.average(mat_delay_tot_pred_average_over_m, axis=0)
-mean_mat_delay_tot_pred_average_over_m_over_u = moving_average(mat_delay_tot_pred_average_over_m_over_u, window_size)
+# For Proactive
+mat_delay_tot_pred_average_over_m = np.average(mat_delay_tot_pred, axis=(0, 1))
+mean_mat_delay_tot_pred_average_over_m_over_u = moving_average(mat_delay_tot_pred_average_over_m, window_size)
 
-plt.plot(mean_mat_delay_tot_average_over_m_over_u, label='SAC')
-plt.plot(mean_mat_delay_tot_pred_average_over_m_over_u, label='Proactive')
-plt.xlabel("Episode")
-plt.ylabel("Average E2E Delay of users (ms)")
-plt.legend()
-plt.show()
-# mean_ep_delay = []
-# mean_ep_delay_pred = []
-# for i in range(aaa-w):
-#     mean_ep_delay.append(np.sum(list_delay[i:-aaa + w+i])/w)
-#     mean_ep_delay_pred.append(np.sum(list_delay_pred[i:-aaa + w+i])/w)
-# plt.plot(mean_ep_delay, label='SAC')
-# plt.plot(mean_ep_delay, label='SAC (Proactive)')
-# plt.xlabel("Episode")
-# plt.ylabel("Average E2E Delay (ms)")
-# plt.legend()
-# plt.show()
+# Plot the data using your custom plot function
+plot_graph("Average E2E Delay of Users",
+           [mean_mat_delay_tot_average_over_m_over_u, mean_mat_delay_tot_pred_average_over_m_over_u],
+           ['SAC', 'Proactive'],
+           ['blue', 'green'],
+           ['solid', 'solid'],
+           "Episode",
+           "Average E2E Delay of Users (ms)")
 # %%%%RUNTIME DURATION%%%%%%%
 #window_size = 200
-mat_episode_runtime_average_over_m=np.average(mat_episode_runtime, axis=0)
-mean_mat_episode_runtime = moving_average(mat_reward_average_over_m_pred, window_size)
+# Calculate the average episode runtime and its moving average
+mean_mat_episode_runtime = moving_average(np.average(mat_episode_runtime, axis=0), window_size)
 
-plt.plot(mean_mat_episode_runtime, label='Average runtime duration: {:.2f} ms'.format(1000 * np.average(mat_episode_runtime)))
-plt.xlabel("Episode")
-plt.ylabel("Runtime duration (ms)")
-plt.legend()
-plt.show()
+# Plot the data using your custom plot function
+plot_graph("Runtime Duration",
+           [mean_mat_episode_runtime],
+           ['Average runtime duration: {:.2f} ms'.format(1000 * np.average(mat_episode_runtime))],
+           ['blue'],
+           ['solid'],
+           "Episode",
+           "Runtime duration (ms)")
 
-#aaa=T
-#ep_time = mat_episode_runtime
-#mean_ep_time = []
-#for i in range(aaa-window_size):
-#    temp_value = np.sum((1000 * ep_time[i:-aaa + window_size+i]))/window_size
-#    mean_ep_time.append(temp_value)
 
-# gain:
-# print('#####################')
-# print('REMEMBER TO PLOT GAIN')
-# #gain vector 1*PRB . rho(u,:) = sum gains for the user on that PRB
-# #rate (gain , power)
-
-# # for user=2 # rho(m,b,k,u,t) /// gain(m,u,k,t)
-# mat_gain_monte_1 = mat_gain[0,:,:,:] # for m=0
-# mat_gain_user_1_monte_1 = mat_gain_monte_1[0, :, :] #for user 0
-
-# mat_rho_monte_1 = mat_rho[0, :,:,:,:]
-# mat_rho_user_1_monte_1 = mat_rho_monte_1[:,:, 0, :]
-
-# list_gain_user_1 = [] # changes in sum(gain) in time
-# mat_gain_user_1_monte_1 = np.transpose(mat_gain_user_1_monte_1) # to make it multiplicable
-
-# for b in range(BS_NO):
-#     if np.dot(mat_rho_user_1_monte_1[b, :, :], mat_gain_user_1_monte_1) > 0:
-#         list_gain_user_1.append(np.dot(mat_rho_user_1_monte_1[b, :, :], mat_gain_user_1_monte_1))
-
-# plt.plot(list_gain_user_1, label='sum gain for user #1')
-# plt.xlabel("Episode")
-# plt.ylabel("sum gain for user #1")
-# plt.legend()
-# plt.show()
 print(style.UNDERLINE + "Total time for {} timeslots/episodes ({} users) in {} Monte-Carlo iterations: {}".format(T, USER_NO, MC, convert_seconds(np.sum(mat_episode_runtime))))
 
 # %%%%%%%
