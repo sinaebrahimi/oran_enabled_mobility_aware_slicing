@@ -707,31 +707,6 @@ ax.legend()
 # Show the plot
 plt.show()
 
-# gain:
-print('#####################')
-print('REMEMBER TO PLOT GAIN')
-#gain vector 1*PRB . rho(u,:) = sum gains for the user on that PRB
-#rate (gain , power)
-
-# for user=2 # rho(m,b,k,u,t) /// gain(m,u,k,t)
-mat_gain_monte_1 = mat_gain[0,:,:,:] # for m=0
-mat_gain_user_1_monte_1 = mat_gain_monte_1[0, :, :] #for user 0
-
-mat_rho_monte_1 = mat_rho[0, :,:,:,:]
-mat_rho_user_1_monte_1 = mat_rho_monte_1[:,:, 0, :]
-
-list_gain_user_1 = [] # changes in sum(gain) in time
-mat_gain_user_1_monte_1 = np.transpose(mat_gain_user_1_monte_1) # to make it multiplicable
-
-for b in range(BS_NO):
-    if np.dot(mat_rho_user_1_monte_1[b, :, :], mat_gain_user_1_monte_1) > 0:
-        list_gain_user_1.append(np.dot(mat_rho_user_1_monte_1[b, :, :], mat_gain_user_1_monte_1))
-
-plt.plot(list_gain_user_1, label='sum gain for user #1')
-plt.xlabel("Episode")
-plt.ylabel("sum gain for user #1")
-plt.legend()
-plt.show()
 
 #sum_gain = np.sum(mat_gain, axis=0) #m,u,k,t
 #avg_gain = np.mean(mat_gain, axis=0)
@@ -921,6 +896,31 @@ plt.show()
 #    temp_value = np.sum((1000 * ep_time[i:-aaa + window_size+i]))/window_size
 #    mean_ep_time.append(temp_value)
 
+# gain:
+# print('#####################')
+# print('REMEMBER TO PLOT GAIN')
+# #gain vector 1*PRB . rho(u,:) = sum gains for the user on that PRB
+# #rate (gain , power)
+
+# # for user=2 # rho(m,b,k,u,t) /// gain(m,u,k,t)
+# mat_gain_monte_1 = mat_gain[0,:,:,:] # for m=0
+# mat_gain_user_1_monte_1 = mat_gain_monte_1[0, :, :] #for user 0
+
+# mat_rho_monte_1 = mat_rho[0, :,:,:,:]
+# mat_rho_user_1_monte_1 = mat_rho_monte_1[:,:, 0, :]
+
+# list_gain_user_1 = [] # changes in sum(gain) in time
+# mat_gain_user_1_monte_1 = np.transpose(mat_gain_user_1_monte_1) # to make it multiplicable
+
+# for b in range(BS_NO):
+#     if np.dot(mat_rho_user_1_monte_1[b, :, :], mat_gain_user_1_monte_1) > 0:
+#         list_gain_user_1.append(np.dot(mat_rho_user_1_monte_1[b, :, :], mat_gain_user_1_monte_1))
+
+# plt.plot(list_gain_user_1, label='sum gain for user #1')
+# plt.xlabel("Episode")
+# plt.ylabel("sum gain for user #1")
+# plt.legend()
+# plt.show()
 print(style.UNDERLINE + "Total time for {} timeslots/episodes ({} users) in {} Monte-Carlo iterations: {}".format(T, USER_NO, MC, convert_seconds(np.sum(mat_episode_runtime))))
 
 # %%%%%%%

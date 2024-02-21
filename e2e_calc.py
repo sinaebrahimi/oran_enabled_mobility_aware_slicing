@@ -115,10 +115,10 @@ class Delay:
                     if self.du_ru_adj_matrix[du, b] == 1: # instead of \zeta ζ in the paper                       
                         if self.associator[u, b] == 1:
                             distance_du_ru = self.distances_du_ru[du, b]
-                            self.mat_delay_prop_fh = distance_du_ru / self.speed_of_light
+                            self.mat_delay_prop_fh[u] = distance_du_ru / self.speed_of_light
                             
-                            distance_ric_du = self.distances_ric_du[du]
-                            self.mat_delay_prop_e2 = distance_ric_du / self.speed_of_light
+                            distance_ric_du = self.distances_ric_du[0, du]
+                            self.mat_delay_prop_e2[u] = distance_ric_du / self.speed_of_light
                             
         return self.mat_delay_prop_fh, self.mat_delay_prop_e2
     
@@ -174,7 +174,7 @@ class Delay:
         for u in range(self.USER_NO):
             user_tolerable_delay = self.mat_specs[u, 2] / 1000 # because it was in ms
             # if self.mat_delay_tx_cn[u] + self.mat_delay_proc[u] + self.mat_delay_proc[u] < user_tolerable_delay:
-            if self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] < user_tolerable_delay:
+            if (self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u]) < user_tolerable_delay:
                 cnt_u += 1
                 self.mat_delay_tot[u] = self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] # check self.mat_delay_tx_uu
                 #print("User {} total delay: {}".format(u, self.mat_delay_tot[u]))###to remove
