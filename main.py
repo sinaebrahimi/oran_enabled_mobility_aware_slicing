@@ -114,12 +114,14 @@ class _main_:
         #self.list_rate = []
         # ---------------------------------------------------------
         self.monte_mat_delay_tot = np.zeros([MC, USER_NO, T])
+        self.delay_satisfaction_ratio = np.zeros([MC, T])
 #        self.list_delay = []
         # ---------
         #self.monte_mat_rate_pred = np.zeros([MC, T, USER_NO])
         #self.list_rate_pred = []
         # ---------------------------------------------------------
         self.monte_mat_delay_tot_pred = np.zeros([MC, USER_NO, T])
+        self.delay_satisfaction_ratio_pred = np.zeros([MC, T])
         # ----------obtaining the number of actions--------------
         self.e1 = BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
         self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
@@ -201,12 +203,12 @@ class _main_:
                                   self.mat_distance, self.distances_ric_du, self.distances_du_ru, self.du_ru_adj_matrix, self.ric_du_adj_matrix, 
                                   USER_NO, BS_NO, DU_NO)
                         #self.mat_placement, self.W_link, self.mat_links_capacity, self.mat_nodes_and_vms_capacity, self.mat_specs, self.path, self.associator, self.mat_distance, USER_NO, VNF_NO, BS_NO)
-                        done_delay_all,  self.mat_delay_tot = D._()
-                        self.monte_mat_delay_tot[m, :, t] = self.mat_delay_tot
+                        cnt_u, done_delay_all,  self.mat_delay_tot = D._()
+                        self.monte_mat_delay_tot[m, :, t] = self.mat_delay_tot                        
+                        self.delay_satisfaction_ratio[m,t] = cnt_u / USER_NO
                         # -------------------------------------
-                        #done_delay_dummy = 1  # just tweaking. to not comment the next line
-                        #if done_delay_dummy == 1:
-                        if done_delay_all == 1:
+                        #if done_delay_all == 1:
+                        if self.delay_satisfaction_ratio[m,t] > 0.8: # or any other threshold!
                             self.mat_satisfied_delay_constraint[m, t] = 1
                             self.sigma_SSL_R = 0
                             for s in range(SLICE_NO):
@@ -273,11 +275,13 @@ class _main_:
                         D_pred = Delay(self.mat_rate_pred, FH_BW_CAPACITY, E2_BW_CAPACITY, self.mat_specs, self.associator_pred, 
                                   self.mat_distance_pred, self.distances_ric_du, self.distances_du_ru, self.du_ru_adj_matrix, self.ric_du_adj_matrix, 
                                   USER_NO, BS_NO, DU_NO)
-                        done_delay_all_pred,  self.mat_delay_tot_pred = D_pred._()
+                        cnt_u_pred, done_delay_all_pred,  self.mat_delay_tot_pred = D_pred._()
+                        self.monte_mat_delay_tot_pred[m, :, t] = self.mat_delay_tot_pred
+                        self.delay_satisfaction_ratio_pred[m,t] = cnt_u_pred / USER_NO
                         # -------------------------------------
                         self.monte_mat_delay_tot_pred[m, :, t] = self.mat_delay_tot_pred
                         #done_delay_dummy = 1  # just tweaking. to not comment the next line
-                        if done_delay_all_pred == 1:
+                        if self.delay_satisfaction_ratio_pred[m,t] > 0.8:
                             self.mat_satisfied_delay_constraint_pred[m, t] = 1
                             self.sigma_SSL_R_pred = 0
                             for s in range(SLICE_NO):

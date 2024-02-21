@@ -183,7 +183,7 @@ class Delay:
             done_delay_all = 1
 
         self.mat_delay_tot = self.mat_delay_tot * 1000   #  To convert to ms
-        return done_delay_all, self.mat_delay_tot
+        return cnt_u, done_delay_all, self.mat_delay_tot
 
 # %%
 class StateCalculation: # TO BE COMPLETED
