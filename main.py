@@ -158,7 +158,15 @@ class _main_:
                 self.reward = -100
                 # -----------------------------------------------
                 LC = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY, X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
-                self.loc_user, self.loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred, self.handover_prediction, self.mat_b_connected, self.mat_b_pred_connected = LC.user_location(t, self.loc_user_init)
+                # -------------------------------------
+                self.mat_bs_loc = LC.bs_location()
+                self.mat_du_loc = LC.du_location()
+                self.distances_ric_du = LC.ric_du_distance()
+                self.distances_du_ru = LC.du_ru_distance()
+                self.du_ru_adj_matrix, self.ric_du_adj_matrix = LC.adj_matrix()
+                if t == 0:
+                    self.loc_user = self.loc_user_init
+                self.loc_user, self.loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred, self.handover_prediction, self.mat_b_connected, self.mat_b_pred_connected = LC.user_location(t, self.loc_user)
 
                 for u in range(USER_NO):
                     for b in range(BS_NO):
@@ -198,13 +206,7 @@ class _main_:
                         self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user = RC._()
                         self.mat_used_prbs_per_user_per_bs[m, :, :, t] = self.used_prbs_per_user_per_bs
                         self.mat_used_prbs_per_user[m, :, t] = self.num_prbs_used_per_user
-                        self.shannon[m, :, t] = self.mat_rate  # b,k,u (in Mbps)
-                        # -------------------------------------
-                        self.mat_bs_loc = LC.bs_location()
-                        self.mat_du_loc = LC.du_location()
-                        self.distances_ric_du = LC.ric_du_distance()
-                        self.distances_du_ru = LC.du_ru_distance()
-                        self.du_ru_adj_matrix, self.ric_du_adj_matrix = LC.adj_matrix()
+                        self.shannon[m, :, t] = self.mat_rate  # b,k,u (in Mbps)                        
                         #--------------------------------------
                         D = Delay(self.mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, self.mat_specs, self.associator, 
                                   self.mat_distance, self.distances_ric_du, self.distances_du_ru, self.du_ru_adj_matrix, self.ric_du_adj_matrix, 
@@ -395,21 +397,62 @@ plot_graph("Runtime Duration",
            "Episode",
            "Runtime duration (ms)")
 #PRB Allocation?
-plot_graph("Average Number of PRBs per User per BS",
-           [np.mean(mat_used_prbs_per_user_per_bs, axis=(0, 1))[:, :, t] for t in range(T-1)],
-           ['BS {}'.format(i) for i in range(BS_NO)],
-           ['blue', 'green', 'orange'],  # Colors for each BS
-           ['solid'] * BS_NO,  # Solid linestyle for each BS
-           "BS Number",
-           "Average Number of PRBs per User")
+# Calculate the average number of PRBs used per BS for SAC and SAC_pred
+avg_prbs_sac = mat_used_prbs_per_user_per_bs.mean(axis=(0,2,3))
+avg_prbs_sac_pred = mat_used_prbs_per_user_per_bs_pred.mean(axis=(0,2,3))
 
-plot_graph("Total Number of PRBs per User",
-           [np.mean(mat_used_prbs_per_user, axis=0)[:, t] for t in range(T-1)],
-           ['SAC', 'SAC_pred'],  # Labels for SAC and SAC_pred
-           ['blue', 'green'],  # Colors for SAC and SAC_pred
-           ['solid', 'solid'],  # Solid linestyle for SAC and SAC_pred
-           "Episode",
-           "Total Number of PRBs per User")
+# Create an array with the positions of each bar on the x-axis
+barWidth = 0.3
+r1 = np.arange(len(avg_prbs_sac))
+r2 = [x + barWidth for x in r1]
+
+# Create the bar chart
+plt.bar(r1, avg_prbs_sac, color='b', width=barWidth, edgecolor='grey', label='SAC')
+plt.bar(r2, avg_prbs_sac_pred, color='r', width=barWidth, edgecolor='grey', label='SAC_pred')
+
+# Add xticks on the middle of the group bars
+plt.xlabel('BS', fontweight='bold')
+plt.xticks([r + barWidth/2 for r in range(BS_NO)], range(1, BS_NO+1))
+
+plt.ylabel('Average number of PRBs used')
+plt.legend()
+
+# Show the plot
+plt.show()
+
+########################
+# Select data for BS=0
+prbs_per_user_per_bs_0 = mat_used_prbs_per_user_per_bs[:, 4, :, :]
+prbs_per_user_per_bs_pred_0 = mat_used_prbs_per_user_per_bs_pred[:, 4, :, :]
+
+# Sum over users and then calculate averages over Monte Carlo runs
+sum_prbs_per_user_per_bs_0 = np.sum(prbs_per_user_per_bs_0, axis=1)
+sum_prbs_per_user_per_bs_pred_0 = np.sum(prbs_per_user_per_bs_pred_0, axis=1)
+
+avg_prbs_per_user_per_bs_0 = np.mean(sum_prbs_per_user_per_bs_0, axis=0)
+avg_prbs_per_user_per_bs_pred_0 = np.mean(sum_prbs_per_user_per_bs_pred_0, axis=0)
+
+# Plot the averages using your function
+plot_graph('Overall PRBs used for BS=4 for SAC and SAC_pred algorithms',
+           [avg_prbs_per_user_per_bs_0, avg_prbs_per_user_per_bs_pred_0],
+           ['SAC', 'SAC_pred'],
+           ['b', 'r'],
+           ['-', '--'],
+           'T',
+           'Average PRBs used per user')
+#######################
+# Calculate averages over Monte Carlo runs and users
+avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(0,1))
+avg_prbs_per_user_pred = np.mean(mat_used_prbs_per_user_pred, axis=(0,1))
+
+# Plot the averages using your function
+plot_graph('PRBs used per user for SAC and SAC_pred algorithms',
+           [avg_prbs_per_user, avg_prbs_per_user_pred],
+           ['SAC', 'SAC_pred'],
+           ['b', 'r'],
+           ['-', '--'],
+           'T',
+           'Average PRBs used per user')
 # %%REWARD%%%%
 mat_reward_average_over_m = np.average(mat_reward, axis=0)
 mat_reward_average_over_m_pred = np.average(mat_reward_pred, axis=0)
