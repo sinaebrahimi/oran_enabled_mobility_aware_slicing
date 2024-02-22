@@ -365,12 +365,12 @@ class _main_:
 
 
 
-        return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.mat_delay_tot, self.mat_delay_tot_pred
+        return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.mat_delay_tot, self.mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred
 
 
 # %%
 M = _main_(MC, T)
-mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, mat_delay_tot, mat_delay_tot_pred = M._()
+mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, mat_delay_tot, mat_delay_tot_pred, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred = M._()
 
 # %%%%%%%
 
@@ -396,7 +396,7 @@ plot_graph("Runtime Duration",
            "Runtime duration (ms)")
 #PRB Allocation?
 plot_graph("Average Number of PRBs per User per BS",
-           [np.mean(self.mat_used_prbs_per_user_per_bs, axis=(0, 1))[:, :, t] for t in range(T-1)],
+           [np.mean(mat_used_prbs_per_user_per_bs, axis=(0, 1))[:, :, t] for t in range(T-1)],
            ['BS {}'.format(i) for i in range(BS_NO)],
            ['blue', 'green', 'orange'],  # Colors for each BS
            ['solid'] * BS_NO,  # Solid linestyle for each BS
@@ -404,7 +404,7 @@ plot_graph("Average Number of PRBs per User per BS",
            "Average Number of PRBs per User")
 
 plot_graph("Total Number of PRBs per User",
-           [np.mean(self.mat_used_prbs_per_user, axis=0)[:, t] for t in range(T-1)],
+           [np.mean(mat_used_prbs_per_user, axis=0)[:, t] for t in range(T-1)],
            ['SAC', 'SAC_pred'],  # Labels for SAC and SAC_pred
            ['blue', 'green'],  # Colors for SAC and SAC_pred
            ['solid', 'solid'],  # Solid linestyle for SAC and SAC_pred
