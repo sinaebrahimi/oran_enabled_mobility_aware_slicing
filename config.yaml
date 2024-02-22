@@ -1,5 +1,5 @@
 # config.yaml
-USER_NO: 10 # 4
+USER_NO: 20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
 PRB_NO: 270 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
@@ -8,7 +8,7 @@ X_LIM: 1000
 Y_LIM: 1000
 #CU_NO: 1 # only 1 CU is envisioned. It is co-located with the Near-RT RIC
 DU_NO: 2 # all connected to the CU
-RU_PER_DU_NO: 3 # Each DU has 3 RUs; Total number of RUs = 3*2 = 6
+RU_PER_DU_NO: 4 # Each DU has 3 RUs; Total number of RUs = 3*2 = 6
 #BS_NO: 20 # should be equal to RU_PER_DU_NO*DU_NO # static for now; Location.bs_location() --- now it is bound to 4 BSs. Can be changed later
 FH_BW_CAPACITY: 5000 # Mbps (5 Gbps) (link between RU and its DU)
 E2_BW_CAPACITY: 100000 # Mbps (100 Gbps) (link between DU and Near-RT RIC (equal to F1, which is between DU and CU))
@@ -25,7 +25,7 @@ CONST_R_MIN: -1 # Mbps
 PACKET_SIZE: -1 # (to be updated after consulting with Faouzi)
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-T: 400 # 14000 # 1000  # Number of timeslots
+T: 20 # 14000 # 1000  # Number of timeslots
 MC: 2  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
 ALPHA_ACT: 0.000001

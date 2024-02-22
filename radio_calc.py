@@ -107,7 +107,7 @@ class Location:
 
     
     def visualize_ru_du_locations(self, du_ru_adj_matrix):
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(5, 5))
 
         # Plot DUs with assigned colors
         colors = plt.cm.viridis(np.linspace(0, 1, self.DU_NO))
@@ -128,6 +128,10 @@ class Location:
         ax.set_xlabel('X Coordinate')
         ax.set_ylabel('Y Coordinate')
         ax.set_title('Location of DUs and RUs')
+
+        # Set plot limits
+        ax.set_xlim(0, self.X_LIM)
+        ax.set_ylim(0, self.X_LIM)
 
         plt.grid(True)
         plt.show()
