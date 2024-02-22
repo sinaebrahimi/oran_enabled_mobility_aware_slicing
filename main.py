@@ -171,7 +171,7 @@ class _main_:
                 self.loc_user, self.loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred, self.handover_prediction, self.mat_b_connected, self.mat_b_pred_connected = LC.user_location(t, self.loc_user)
                 self.mat_associator[:, :, t] = self.associator
                 print(self.loc_user[t,0,:])
-                print('-')
+                #print('-')
                 for u in range(USER_NO):
                     for b in range(BS_NO):
                         if self.associator[u, b] == 1:
@@ -391,7 +391,7 @@ window_size = 200  # (for smoothing the curves in the plots)
 LC.visualize_ru_du_locations(du_ru_adj_matrix)
 # %%%%RUNTIME DURATION%%%%%%%
 # Calculate the average episode runtime and its moving average
-mean_mat_episode_runtime = moving_average(np.average(mat_episode_runtime, axis=0), window_size)
+mean_mat_episode_runtime = moving_average(1000*np.average(mat_episode_runtime, axis=0), window_size)
 
 # Plot the data using your custom plot function
 plot_graph("Runtime Duration",

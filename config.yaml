@@ -1,7 +1,7 @@
 # config.yaml
 USER_NO: 20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
-PRB_NO: 270 #  (to be updated after consulting with Faouzi)
+PRB_NO: 200 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
 ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas
 X_LIM: 1000
@@ -25,8 +25,8 @@ CONST_R_MIN: -1 # Mbps
 PACKET_SIZE: -1 # (to be updated after consulting with Faouzi)
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-T: 20 # 14000 # 1000  # Number of timeslots
-MC: 2  # Number of Monte-carlo runs
+T: 40 # 14000 # 1000  # Number of timeslots
+MC: 1  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
 ALPHA_ACT: 0.000001
 BETA_ACT: 0.000005

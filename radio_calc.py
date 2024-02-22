@@ -150,16 +150,37 @@ class Location:
         self.mat_b_connected = np.zeros(self.USER_NO) 
         self.mat_b_pred_connected = np.zeros(self.USER_NO) 
 
+        # for u in range(self.USER_NO):
+        #     if t == 0:
+        #         loc_user[t, u, :] = self.X_LIM * np.random.rand(2)
+        #     else:
+        #         next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
+        #                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
+        #         loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
+
+        #     next_pos_pred = loc_user[t, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
+        #                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
+        #     loc_user_pred[t, u, :] = np.clip(next_pos_pred, 0, self.X_LIM)
         for u in range(self.USER_NO):
             if t == 0:
                 loc_user[t, u, :] = self.X_LIM * np.random.rand(2)
             else:
                 next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
-                                                self.V[u] * np.sin(np.radians(self.angle[u]))]
+                                                    self.V[u] * np.sin(np.radians(self.angle[u]))]
+                # Check if the user is at the boundary or at the corners and make a U-turn
+                if np.any(next_pos >= self.X_LIM) or np.any(next_pos <= 0) or np.all(next_pos == [0, self.X_LIM]) or np.all(next_pos == [self.X_LIM, 0]) or np.all(next_pos == [0, 0]) or np.all(next_pos == [self.X_LIM, self.X_LIM]):
+                    self.angle[u] = (self.angle[u] + 180) % 360
+                    next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
+                                                        self.V[u] * np.sin(np.radians(self.angle[u]))]
                 loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
 
             next_pos_pred = loc_user[t, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
-                                                self.V[u] * np.sin(np.radians(self.angle[u]))]
+                                                    self.V[u] * np.sin(np.radians(self.angle[u]))]
+            # Check if the user is at the boundary or at the corners and make a U-turn
+            if np.any(next_pos_pred >= self.X_LIM) or np.any(next_pos_pred <= 0) or np.all(next_pos_pred == [0, self.X_LIM]) or np.all(next_pos_pred == [self.X_LIM, 0]) or np.all(next_pos_pred == [0, 0]) or np.all(next_pos_pred == [self.X_LIM, self.X_LIM]):
+                self.angle[u] = (self.angle[u] + 180) % 360
+                next_pos_pred = loc_user[t, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
+                                                        self.V[u] * np.sin(np.radians(self.angle[u]))]
             loc_user_pred[t, u, :] = np.clip(next_pos_pred, 0, self.X_LIM)
 
             for b in range(self.BS_NO):
