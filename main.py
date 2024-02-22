@@ -170,7 +170,7 @@ class _main_:
                     self.loc_user = self.loc_user_init
                 self.loc_user, self.loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred, self.handover_prediction, self.mat_b_connected, self.mat_b_pred_connected = LC.user_location(t, self.loc_user)
                 self.mat_associator[:, :, t] = self.associator
-                print(self.loc_user[t,0,:])
+                #print(self.loc_user[t,0,:])
                 #print('-')
                 for u in range(USER_NO):
                     for b in range(BS_NO):
