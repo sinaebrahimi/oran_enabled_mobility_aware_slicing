@@ -13,7 +13,7 @@ sequence_length = 3
 
 # Define the LSTM model
 model = Sequential()
-model.add(LSTM(50, activation='relu', input_shape=(sequence_length, USER_NO * 2)))
+model.add(LSTM(50, activation='relu', input_shape=(sequence_length, USER_NO * 2))) # 50 is the number of LSTM units (or neurons) in that layer
 model.add(Dense(USER_NO * 2))
 
 # Compile the model
