@@ -31,4 +31,4 @@ MC: 3  # Number of Monte-carlo runs
 ALPHA_ACT: 0.000001
 BETA_ACT: 0.000005
 VAR: 1
-DECAY_VAR: .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
+DECAY_VAR: .995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
