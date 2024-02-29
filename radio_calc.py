@@ -140,15 +140,9 @@ class Location:
     def user_location(self, t, loc_user): #also calculates channel gain
         self.mat_bs_loc = Location.bs_location(self)
         self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.H_pred = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO]) # mean channel gain for estimating the next timeslot
         self.associator = np.zeros([self.USER_NO, self.BS_NO])
-        self.associator_pred = np.zeros([self.USER_NO, self.BS_NO])
         self.mat_distance = np.zeros([self.BS_NO, self.USER_NO])
-        self.mat_distance_pred = np.zeros([self.BS_NO, self.USER_NO])
-        loc_user_pred = np.copy(loc_user)
-        self.handover_prediction = np.zeros(self.USER_NO, dtype=bool)  # Initialize boolean array for handover prediction
         self.mat_b_connected = np.zeros(self.USER_NO) 
-        self.mat_b_pred_connected = np.zeros(self.USER_NO) 
 
         # for u in range(self.USER_NO):
         #     if t == 0:
@@ -157,10 +151,6 @@ class Location:
         #         next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
         #                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
         #         loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
-
-        #     next_pos_pred = loc_user[t, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
-        #                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
-        #     loc_user_pred[t, u, :] = np.clip(next_pos_pred, 0, self.X_LIM)
         for u in range(self.USER_NO):
             if t == 0:
                 loc_user[t, u, :] = self.X_LIM * np.random.rand(2)
@@ -174,52 +164,32 @@ class Location:
                                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
                 loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
 
-            next_pos_pred = loc_user[t, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
-                                                    self.V[u] * np.sin(np.radians(self.angle[u]))]
-            # Check if the user is at the boundary or at the corners and make a U-turn
-            if np.any(next_pos_pred >= self.X_LIM) or np.any(next_pos_pred <= 0) or np.all(next_pos_pred == [0, self.X_LIM]) or np.all(next_pos_pred == [self.X_LIM, 0]) or np.all(next_pos_pred == [0, 0]) or np.all(next_pos_pred == [self.X_LIM, self.X_LIM]):
-                self.angle[u] = (self.angle[u] + 180) % 360
-                next_pos_pred = loc_user[t, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
-                                                        self.V[u] * np.sin(np.radians(self.angle[u]))]
-            loc_user_pred[t, u, :] = np.clip(next_pos_pred, 0, self.X_LIM)
-
             for b in range(self.BS_NO):
                 x_b, y_b = self.mat_bs_loc[b]
                 x_u, y_u = loc_user[t, u]
-                x_u_pred, y_u_pred = loc_user_pred[t, u]
                 distance_user_bs = distance.euclidean((x_b, y_b), (x_u, y_u)) or 1
-                distance_user_bs_pred = distance.euclidean((x_b, y_b), (x_u_pred, y_u_pred)) or 1
 
                 self.mat_distance[b, u] = distance_user_bs
-                self.mat_distance_pred[b, u] = distance_user_bs_pred
                 # ------------------------------------
                 d_alpha = distance_user_bs**(-self.eta) #path loss
-                d_pred_alpha = distance_user_bs_pred**(-self.eta) # not used
                 # ------------------------------------
                 H_u = rayleigh.rvs(scale=self.scale, size=self.PRB_NO) #size=o_d.size) # added the sigma (some controlling parameter in rayleigh distribution to have more variance in the values)
                 H_u *= d_alpha
-                H_u_pred = rayleigh.rvs(scale=self.scale, size=self.PRB_NO)
-                H_u_pred *= d_pred_alpha
                 # H_u = rayleigh.rvs(o_d) # calculating user's channel gain using Rayleigh distribution
                 self.H[b, :, u] = H_u
-                self.H_pred[b, :, u] = H_u_pred # np.mean(H_u) # mean channel gain for estimating the next timeslot #Maybe not too good!
 
-            self.b_connected = self.mat_distance[:, u].argmin()
+            self.b_connected = self.mat_distance[:, u].argmin() # Heuristic that connects the user to the closest BS
             self.mat_b_connected[u] = self.b_connected
             self.associator[u, self.b_connected] = 1
 
-            self.b_pred_connected = self.mat_distance_pred[:, u].argmin()
-            self.mat_b_pred_connected[u] = self.b_pred_connected
-            self.associator_pred[u, self.b_pred_connected] = 1
+            # if self.b_pred_connected != self.b_connected:
+            #     self.handover_prediction[u] = True
 
-            if self.b_pred_connected != self.b_connected:
-                self.handover_prediction[u] = True
-
-        return loc_user, loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred, self.handover_prediction, self.mat_b_connected, self.mat_b_pred_connected
+        return loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected
     
     def plot_user_movement(self, loc_user, associator, t):
         # Set up figure and axis for plotting
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(5, 5))
 
         # Plot BSs
         bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs

@@ -161,7 +161,7 @@ class _main_:
             self.agent = Agent(ALPHA_ACT, BETA_ACT,self.num_actions, self.state_size)
             self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
             self.decay_var = DECAY_VAR
-            
+
             for t in range(T-1):
                 start_time = time.time()
                 self.tt = t + 1
@@ -172,7 +172,7 @@ class _main_:
                 # -----------------------------------------------                
                 if t == 0:
                     self.loc_user = self.loc_user_init
-                self.loc_user, self.loc_user_pred, self.H, self.H_pred, self.associator, self.associator_pred, self.mat_distance, self.mat_distance_pred, self.handover_prediction, self.mat_b_connected, self.mat_b_pred_connected = LC.user_location(t, self.loc_user)
+                self.loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected = LC.user_location(t, self.loc_user)
                 self.mat_associator[:, :, t] = self.associator
                 #print(self.loc_user[t,0,:])
                 #print('-')

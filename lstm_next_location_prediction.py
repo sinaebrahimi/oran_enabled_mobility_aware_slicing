@@ -2,7 +2,12 @@ import numpy as np
 from keras.models import Sequential
 from keras.layers import LSTM, Dense
 
-# Assume we have some preprocessed data
+# Assume we have some preprocessed data from user_location; we have x,y (coordinates) of the user at the current timestep... from 
+
+# class LocationPrediction:
+#     def __init__(self,
+
+
 # self.loc_user_init = np.zeros([T, USER_NO, 2])
 T = 20
 USER_NO = 2
