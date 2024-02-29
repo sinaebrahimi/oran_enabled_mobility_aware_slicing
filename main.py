@@ -135,9 +135,11 @@ class _main_:
         self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
         self.num_actions = self.e2 # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
         # ---------------------------------------------------------
-        self.s1 = 2 * USER_NO # X,Y coordinates of users
-        self.s2 = USER_NO * BS_NO * PRB_NO # channel gain matrix (b,k,u)
-        # self.s3 = 4 * USER_NO
+        self.s1 = 2 * USER_NO # np.zeros([T, USER_NO, 2]) ## 2 for x,y of t+1
+        self.s2 = USER_NO * BS_NO * PRB_NO # channel gain matrix (b,k,u) of t+1 # self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO]) # defined in radio_calc.py -> user_location()
+        # add the occupancy/availability of PRBs to the state: rho[b,k,u] of t (current real state (unpredicted)); (we should know which are not being utilized)
+        # add the remaining power capacity of RUs to the state (unpredicted): [b] of t (it should be a vector like [40 22.5 30 40 5.5 30] for 6 RUs)
+        # self.s3 = 4 * USER_NO #for slice requirements (but we dont need this as this wouldn't change!)
         self.state_size = self.s1 + self.s2
 
         # calling the SAC agent
@@ -153,11 +155,13 @@ class _main_:
         self.distances_du_ru = LC.du_ru_distance()
         self.du_ru_adj_matrix, self.ric_du_adj_matrix = LC.adj_matrix()
         for m in range(MC):
-            self.agent = Agent(ALPHA_ACT, BETA_ACT,
-                       self.num_actions, self.state_size)
-            self.var = VAR
-        # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
+            #maybe reset the LSTM as well
+
+            #resetting the SAC agent here!            
+            self.agent = Agent(ALPHA_ACT, BETA_ACT,self.num_actions, self.state_size)
+            self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
             self.decay_var = DECAY_VAR
+            
             for t in range(T-1):
                 start_time = time.time()
                 self.tt = t + 1
