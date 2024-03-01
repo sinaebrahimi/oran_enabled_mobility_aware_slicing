@@ -48,6 +48,7 @@ VELOCITY = config['VELOCITY']
 CONST_D_MAX = config['CONST_D_MAX']
 CONST_R_MIN = config['CONST_R_MIN']
 PACKET_SIZE = config['PACKET_SIZE']
+PACKET_NO = config['PACKET_NO']
 RAYLEIGH_SCALE = config['RAYLEIGH_SCALE']
 T = config['T']
 MC = config['MC']
@@ -63,7 +64,7 @@ DECAY_VAR = config['DECAY_VAR']
 
 class _main_:
     def __init__(self, MC, T):
-        SP = Specifications(USER_NO, SLICE_NO, CONST_D_MAX, CONST_R_MIN, PACKET_SIZE)
+        SP = Specifications(USER_NO, SLICE_NO, CONST_D_MAX, CONST_R_MIN, PACKET_SIZE, PACKET_NO)
         self.mat_specs = SP._()
         # --------------------------------------
         self.loc_user_init = np.zeros([T, USER_NO, 2]) # initializing user_location... t=0 location will be changed randomly in the RadioCalc.user_location()

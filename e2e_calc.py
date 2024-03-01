@@ -59,7 +59,7 @@ class Mapping:
 
     def ran_power_allocation(self):
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
-        self.temp_p = (self.action[self.e1:self.e2]+1)/2
+        self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### why?
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.scale = .01 # What is it?
         self.done_user_power_allocation = 0
@@ -71,6 +71,7 @@ class Mapping:
                         if (self.rho[b, k, u]) == 1:
                             if self.remained_power[b] - (self.scale * self.temp_p_reshaped[b, k, u]) > 0:
                                 self.P[b, k, u] = self.scale * self.temp_p_reshaped[b, k, u]
+                                self.remained_power[b] -= self.P[b, k, u]
 
             if np.sum(self.P[:, :, u]) > 0:
                 cnt_u += 1
@@ -133,7 +134,8 @@ class Delay:
 #%%%%%%%%% Transmission delay calculation:
     def tx_fh_e2(self):        
         for u in range(self.USER_NO):
-            PACKET_SIZE = self.mat_specs[u, 3]
+            PACKET_SIZE = self.mat_specs[u, 3] # in mbits
+            # PACKET_NO = self.mat_specs[u, 4] # number of packetsper each second
             fh_overhead = 0.1 * PACKET_SIZE
             e2_overhead = 0.1 * PACKET_SIZE
             for du in range(self.DU_NO):
@@ -153,10 +155,11 @@ class Delay:
     def tx_uu(self):
         for u in range(self.USER_NO):
             PACKET_SIZE = self.mat_specs[u, 3] # in mbits
+            PACKET_NO = self.mat_specs[u, 4] # number of packetsper each second
             if self.mat_rate[u] == 0:
                 delay_tx_uu = 0
             else:
-                delay_tx_uu = PACKET_SIZE / self.mat_rate[u]
+                delay_tx_uu = (PACKET_SIZE * PACKET_NO) / self.mat_rate[u]
             self.mat_delay_tx_uu[u] = delay_tx_uu
         return self.mat_delay_tx_uu
 
@@ -174,9 +177,10 @@ class Delay:
         for u in range(self.USER_NO):
             user_tolerable_delay = self.mat_specs[u, 2] / 1000 # because it was in ms
             # if self.mat_delay_tx_cn[u] + self.mat_delay_proc[u] + self.mat_delay_proc[u] < user_tolerable_delay:
-            if (self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u]) < user_tolerable_delay:
-                cnt_u += 1
-                self.mat_delay_tot[u] = self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] # check self.mat_delay_tx_uu
+            self.mat_delay_tot[u] = self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] # check self.mat_delay_tx_uu
+
+            if self.mat_delay_tot[u] < user_tolerable_delay:
+                cnt_u += 1                
                 #print("User {} total delay: {}".format(u, self.mat_delay_tot[u]))###to remove
 
         if cnt_u == self.USER_NO:
