@@ -155,17 +155,18 @@ class Delay:
     def tx_uu(self):
         for u in range(self.USER_NO):
             PACKET_SIZE = self.mat_specs[u, 3] # in mbits
-            PACKET_NO = self.mat_specs[u, 4] # number of packetsper each second
+            #PACKET_NO = self.mat_specs[u, 4] # number of packetsper each second
             if self.mat_rate[u] == 0:
                 delay_tx_uu = 0
             else:
-                delay_tx_uu = (PACKET_SIZE * PACKET_NO) / self.mat_rate[u]
+                delay_tx_uu = (PACKET_SIZE) / self.mat_rate[u]
+                # delay_tx_uu = (PACKET_SIZE * PACKET_NO) / self.mat_rate[u]
             self.mat_delay_tx_uu[u] = delay_tx_uu
         return self.mat_delay_tx_uu
 
 
     def _(self):
-        self.mat_delay_tot = np.ones([self.USER_NO]) # avoiding zeros to escape division to zero error # to multiply to something smaller as we will multiply it by 1000 to convert to ms
+        self.mat_delay_tot = np.ones([self.USER_NO], dtype=np.float64) # avoiding zeros to escape division to zero error # to multiply to something smaller as we will multiply it by 1000 to convert to ms
         self.mat_delay_tot *= 0.00001 # 10 us (0.01 ms)
         done_delay_all = 0
         cnt_u = 0
@@ -177,8 +178,8 @@ class Delay:
         for u in range(self.USER_NO):
             user_tolerable_delay = self.mat_specs[u, 2] / 1000 # because it was in ms
             # if self.mat_delay_tx_cn[u] + self.mat_delay_proc[u] + self.mat_delay_proc[u] < user_tolerable_delay:
-            self.mat_delay_tot[u] = self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u] # check self.mat_delay_tx_uu
-
+            total_delay_user = np.float64(self.mat_delay_tx_uu[u] + self.mat_delay_tx_fh[u] + self.mat_delay_tx_e2[u] + self.mat_delay_prop_uu[u] + self.mat_delay_prop_e2[u] + self.mat_delay_prop_fh[u]) # check self.mat_delay_tx_uu
+            self.mat_delay_tot[u] = total_delay_user
             if self.mat_delay_tot[u] < user_tolerable_delay:
                 cnt_u += 1                
                 #print("User {} total delay: {}".format(u, self.mat_delay_tot[u]))###to remove

@@ -39,5 +39,5 @@ class Specifications:
             self.mat_specs[u, 1] = self.list_min_rate[user_selected_slice] # self.list_min_rate[np.random.randint(len(self.list_min_rate))] #self.user_min_rate * (1 + np.random.rand())  # reqiured bandwith
             self.mat_specs[u, 2] = self.list_tolerable_delay[user_selected_slice] # self.user_tolerable_delay   #self.list_tolerable_delay[np.random.randint(len(self.list_tolerable_delay))] #  tolrable delay
             self.mat_specs[u, 3] = self.packet_size[user_selected_slice]  # Pacekt_size # in bits
-            self.mat_specs[u, 4] = self.packet_no ###self.list_min_rate[user_selected_slice] / self.packet_size[user_selected_slice] #packet_no per timeslot length # static for now #  it can be poisson like 10 packet per second
+            self.mat_specs[u, 4] = self.packet_no[user_selected_slice] ###self.list_min_rate[user_selected_slice] / self.packet_size[user_selected_slice] #packet_no per timeslot length # static for now #  it can be poisson like 10 packet per second
         return self.mat_specs
