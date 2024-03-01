@@ -338,7 +338,7 @@ class _main_:
                               X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
                 self.loc_users_new, self.H_new, self.associator, self.mat_distance, self.mat_b_connected = LC_next.user_location(self.tt, self.loc_user)
                 # -----------------------------------------------------
-                SC = StateCalculation(self.H_new, self.loc_users_new[t, :]) #  shouldn't it be self.loc_users_new[self.tt, :]?
+                SC = StateCalculation(self.H_new, self.loc_users_new[self.tt, :]) #  shouldn't it be self.loc_users_new[self.tt, :]?
                 self.next_state = SC._()
                 self.next_state = self.next_state.astype('float16')
                 # -------------------------------------

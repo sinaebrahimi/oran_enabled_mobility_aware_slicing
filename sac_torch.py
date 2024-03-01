@@ -6,9 +6,9 @@ from buffer import ReplayBuffer
 from networks import ActorNetwork, CriticNetwork, ValueNetwork
 
 class Agent():
-    def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.6,
-            layer1_size = 512, layer2_size = 256, batch_size = 32, reward_scale = 1):
-        self.gamma = 0.7
+    def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.7,
+            layer1_size = 500, layer2_size = 256, batch_size = 16, reward_scale = 1):
+        self.gamma = 0.8
         self.tau = tau
         self.pointer = 0
         self.max_size = 12000 # should be larger than T (episode number) # formerly 1000
