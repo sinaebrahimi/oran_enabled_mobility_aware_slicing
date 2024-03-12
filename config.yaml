@@ -1,5 +1,5 @@
 # config.yaml
-USER_NO: 1 #10 #20 # 4
+USER_NO: 10 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
 PRB_NO: 200 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
@@ -26,7 +26,7 @@ PACKET_SIZE: 0.012 # based on 1500 bytes for eMBB # in mbits # -1
 PACKET_NO: 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-T: 1500 # 14000 # 1000  # Number of timeslots
+T: 4000 # 14000 # 1000  # Number of timeslots
 MC: 1  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
 ALPHA_ACT: 0.000001

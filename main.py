@@ -202,7 +202,8 @@ class _main_:
                 self.action = np.clip(self.action, -1, 1)
                 # -------Current state calculation---------------------
                 MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
-                self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
+                # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
+                self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation_greedy_version()
                 if self.done_user_prb_allocation == 1:
                     self.mat_rho[m, :, :, :, t] = self.rho #saving rho
                     self.mat_satisfied_prb_constraint[m, t] = 1

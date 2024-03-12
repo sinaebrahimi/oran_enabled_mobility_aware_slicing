@@ -45,7 +45,7 @@ class Mapping:
             for b in range(self.BS_NO):
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
-                        if np.sum(self.rho[b, k, :]) == 0:
+                        if np.sum(self.rho[b, k, :]) == 0:###########
                             if self.temp_rho_reshaped[b, k, u] > .5: # rounding up
                                 self.rho[b, k, u] = 1
 
@@ -56,6 +56,32 @@ class Mapping:
             self.done_user_prb_allocation = 1
 
         return self.done_user_prb_allocation, self.rho
+    
+
+    def ran_prb_allocation_greedy_version(self):
+        self.e0 = 0
+        self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
+        self.temp_rho = self.action[self.e0:self.e1]
+        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
+        # Initialize variables
+        self.done_user_prb_allocation = 0
+        cnt_u=0
+
+        # Greedy allocation
+        for u in range(self.USER_NO):
+            for b in range(self.BS_NO):
+                if self.associator[u, b] == 1:
+                    for k in range(self.PRB_NO):
+                        if self.temp_rho_reshaped[b, k, u] > 0.5:
+                            self.rho[b, k, u] = 1
+            if np.sum(self.rho[:, :, u]) > 0:
+                cnt_u += 1
+
+        if cnt_u == self.USER_NO:
+            self.done_user_prb_allocation = 1
+
+        return self.done_user_prb_allocation, self.rho
+    
 
     def ran_power_allocation(self):
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
