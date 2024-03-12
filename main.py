@@ -208,10 +208,19 @@ class _main_:
                     self.mat_rho[m, :, :, :, t] = self.rho #saving rho
                     self.mat_satisfied_prb_constraint[m, t] = 1
                     self.done_user_power_allocation, self.P = MA.ran_power_allocation()
+                    # ################################################
+                    # ###### Make power alloc greedy for user=0
+                    # selected_bs = self.mat_b_connected[0].astype(int)
+                    # self.P[selected_bs,:,0] = MAX_POWER / PRB_NO 
+                    # ######
+                    # ###############Make PRB alloc GREEDY for user=0                    
+                    # self.rho[selected_bs,:,0] = 1 # user=0
+                    # #################################################
                     for u in range(USER_NO):
                         self.mat_power[m, u, t] = np.sum(self.P[:, :, u]) # summing the power allocated to all user PRBs
                     if self.done_user_power_allocation == 1:
                         self.mat_satisfied_power_constraint[m, t] = 1
+                        
                         RC = RateCalculation(self.P, self.rho, self.H, self.associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
                         self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user = RC._()
                         self.mat_used_prbs_per_user_per_bs[m, :, :, t] = self.used_prbs_per_user_per_bs
@@ -583,7 +592,27 @@ plot_graph("Comparison of Average E2E Delay (SAC)",
 #            ['solid', 'solid'],
 #            "Timestep",
 #            "Average E2E Delay (ms)")
+#####################
+mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=0)
+mean_rate_sac_smoothed = moving_average(mean_rate_sac, window_size)
+plot_graph("Average Data Rate (SAC)",
+           [mean_rate_sac_smoothed],
+           ['SAC'],
+           ['blue'],
+           ['solid'],
+           "Timestep",
+           "Average Data Rate (Mbps)")
 
+#####################
+mean_power_sac = np.mean(np.mean(mat_power, axis=1), axis=0)
+mean_power_sac_smoothed = moving_average(mean_power_sac, window_size)
+plot_graph("Average of total allocated power to each user (SAC)",
+           [mean_power_sac_smoothed],
+           ['SAC'],
+           ['blue'],
+           ['solid'],
+           "Timestep",
+           "Average of total allocated power to each user (W)")
 
 print(style.UNDERLINE + "Total time for {} timeslots/episodes ({} users) in {} Monte-Carlo iterations: {}".format(T, USER_NO, MC, convert_seconds(np.sum(mat_episode_runtime))))
 

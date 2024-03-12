@@ -179,6 +179,7 @@ class Location:
                 self.H[b, :, u] = H_u
 
             self.b_connected = self.mat_distance[:, u].argmin() # Heuristic that connects the user to the closest BS
+            #self.b_connected = self.b_connected.astype(int)
             self.mat_b_connected[u] = self.b_connected
             self.associator[u, self.b_connected] = 1
 
