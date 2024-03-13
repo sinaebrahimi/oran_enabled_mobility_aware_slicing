@@ -203,18 +203,18 @@ class _main_:
                 # -------Current state calculation---------------------
                 MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
-                self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation_greedy_version()
+                self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation_greedy_version() ####GREEDY VERSION
                 if self.done_user_prb_allocation == 1:
                     self.mat_rho[m, :, :, :, t] = self.rho #saving rho
                     self.mat_satisfied_prb_constraint[m, t] = 1
                     self.done_user_power_allocation, self.P = MA.ran_power_allocation()
                     # ################################################
                     # ###### Make power alloc greedy for user=0
-                    # selected_bs = self.mat_b_connected[0].astype(int)
+                    selected_bs = self.mat_b_connected[0].astype(int)
                     # self.P[selected_bs,:,0] = MAX_POWER / PRB_NO 
                     # ######
                     # ###############Make PRB alloc GREEDY for user=0                    
-                    # self.rho[selected_bs,:,0] = 1 # user=0
+                    self.rho[selected_bs,:,0] = 1 # user=0
                     # #################################################
                     for u in range(USER_NO):
                         self.mat_power[m, u, t] = np.sum(self.P[:, :, u]) # summing the power allocated to all user PRBs
