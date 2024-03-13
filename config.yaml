@@ -1,5 +1,5 @@
 # config.yaml
-USER_NO: 1 #10 #20 # 4
+USER_NO: 30 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
 PRB_NO: 200 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #

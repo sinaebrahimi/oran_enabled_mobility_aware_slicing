@@ -87,7 +87,7 @@ class Mapping:
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
         self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### why?
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.scale = 1 # What is it?
+        self.scale = 0.1 # What is it? #making it 1 to make it ineffective
         # self.scale = .01
         self.done_user_power_allocation = 0
         cnt_u = 0

@@ -210,11 +210,11 @@ class _main_:
                     self.done_user_power_allocation, self.P = MA.ran_power_allocation()
                     # ################################################
                     # ###### Make power alloc greedy for user=0
-                    selected_bs = self.mat_b_connected[0].astype(int)
+                    #selected_bs = self.mat_b_connected[0].astype(int)
                     # self.P[selected_bs,:,0] = MAX_POWER / PRB_NO 
                     # ######
                     # ###############Make PRB alloc GREEDY for user=0                    
-                    self.rho[selected_bs,:,0] = 1 # user=0
+                    #self.rho[selected_bs,:,0] = 1 # user=0
                     # #################################################
                     for u in range(USER_NO):
                         self.mat_power[m, u, t] = np.sum(self.P[:, :, u]) # summing the power allocated to all user PRBs
