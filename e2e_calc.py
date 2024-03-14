@@ -220,21 +220,28 @@ class Delay:
 
 # %%
 class StateCalculation: # TO BE COMPLETED
-    def __init__(self, H, loc_users_t):
-        self.H = H
+    def __init__(self, loc_users_t, H, X_LIM):
         self.loc_users_t = loc_users_t
+        self.H = H
+        self.X_LIM = X_LIM
         #to add other states
         # self.mat_specs = mat_specs # s3 = 4 * USER_NO # includes 0: selected slice, 1: min rate, 2: tolerable delay, 3: packet size
 
     def _(self):
-        self.states_no = self.H.size + self.loc_users_t.size
+        self.states_no = self.loc_users_t.size + self.H.size 
         self.state = np.zeros([self.states_no])
 
-        self.H_reshaped = np.reshape(self.H, [self.H.size])
         self.loc_users_reshaped = np.reshape(self.loc_users_t, [self.loc_users_t.size])
+        self.H_reshaped = np.reshape(self.H, [self.H.size])
 
-        self.state[0:self.H.size] = 100 * (self.H_reshaped)/(np.max(self.H_reshaped)) # Normalizing the value for the neural network (avoiding errors)
-        self.state[self.H.size:self.H.size + self.loc_users_t.size] = self.loc_users_reshaped #SHOULDN't WE ALSO NORMALIZE THIS TO /1000?
-        self.state = 100 * self.state / np.max(self.state)
+
+        self.state[0:self.loc_users_t.size] = self.loc_users_reshaped / self.X_LIM #Normalizing to /1000?
+        self.state[self.loc_users_t.size:self.loc_users_t.size + self.H.size] = 100 * (self.H_reshaped)/(np.max(self.H_reshaped)) # Normalizing the value for the neural network (avoiding errors)
+
+        # cant understand multiplications to 100
+
+        # self.state[0:self.H.size] = 100 * (self.H_reshaped)/(np.max(self.H_reshaped)) # Normalizing the value for the neural network (avoiding errors)
+        # self.state[self.H.size:self.H.size + self.loc_users_t.size] = self.loc_users_reshaped #SHOULDN't WE ALSO NORMALIZE THIS TO /1000?
+        self.state = 100 * self.state / np.max(self.state) #  the last normalization!
         return self.state
 
