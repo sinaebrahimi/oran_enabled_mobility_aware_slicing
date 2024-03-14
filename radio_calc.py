@@ -137,8 +137,8 @@ class Location:
         plt.show()
 
 # User location and channel gain calculations
-    def user_location(self, t, loc_user): #also calculates channel gain
-        self.mat_bs_loc = Location.bs_location(self)
+    def user_location(self, t, loc_user, mat_bs_loc): #also calculates channel gain
+        self.mat_bs_loc = mat_bs_loc# Location.bs_location(self)
         self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
         self.associator = np.zeros([self.USER_NO, self.BS_NO])
         self.mat_distance = np.zeros([self.BS_NO, self.USER_NO])

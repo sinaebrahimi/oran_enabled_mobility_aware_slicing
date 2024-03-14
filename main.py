@@ -74,7 +74,7 @@ class _main_:
         self.mat_fh_links_capacity, self.mat_e2_links_capacity = RLOC_INIT.links_capacity()        
         # -----------------------------------------------
         # self.mat_reward = np.zeros([T])
-        self.mat_reward = -100 * np.ones([MC, T])
+        self.mat_reward = np.zeros([MC, T]) # -100 * np.ones([MC, T])
         self.mat_satisfied_prb_constraint = np.zeros([MC, T])
         self.mat_satisfied_power_constraint = np.zeros([MC, T])
         self.mat_satisfied_delay_constraint = np.zeros([MC, T])
@@ -169,22 +169,30 @@ class _main_:
                 if np.mod(t, 100) == 0:
                     print(style.RED + str(t))
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
-                self.reward = -100
+                self.reward = 0 # -100
                 # -----------------------------------------------                
                 if t == 0:
                     self.loc_user = self.loc_user_init
-                self.loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected = LC.user_location(t, self.loc_user)
+                self.loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected = LC.user_location(t, self.loc_user, self.mat_bs_loc)
                 self.mat_associator[:, :, t] = self.associator
                 #print(self.loc_user[t,0,:])
                 #print('-')
-                for u in range(USER_NO):
-                    for b in range(BS_NO):
-                        if self.associator[u, b] == 1:
-                            self.mat_u_bs_dist[m, u, t] = self.mat_distance[b, u]
-                            #self.mat_u_bs_dist_pred[m, u, t] = self.mat_distance_pred[b, u]
 
-                            self.mat_gain[m, u, :, t] = self.H[b, :, u]  # b,k,u
-                            #self.mat_gain_pred[m, u, :, t] = (self.H_pred[b, :, u])  # b,k,u
+                # Find the indices where associator is 1
+                u_indices, b_indices = np.where(self.associator == 1)
+
+                # Use these indices to directly assign values
+                self.mat_u_bs_dist[m, u_indices, t] = self.mat_distance[b_indices, u_indices]
+                self.mat_gain[m, u_indices, :, t] = self.H[b_indices, :, u_indices]
+
+                # for u in range(USER_NO):
+                #     for b in range(BS_NO):
+                #         if self.associator[u, b] == 1:
+                #             self.mat_u_bs_dist[m, u, t] = self.mat_distance[b, u]
+                #             #self.mat_u_bs_dist_pred[m, u, t] = self.mat_distance_pred[b, u]
+
+                #             self.mat_gain[m, u, :, t] = self.H[b, :, u]  # b,k,u
+                #             #self.mat_gain_pred[m, u, :, t] = (self.H_pred[b, :, u])  # b,k,u
 
                 # -----------------------------------------------------
                 SC = StateCalculation(self.H, self.loc_user[t, :])
@@ -210,7 +218,7 @@ class _main_:
                     self.done_user_power_allocation, self.P = MA.ran_power_allocation()
                     # ################################################
                     # ###### Make power alloc greedy for user=0
-                    #selected_bs = self.mat_b_connected[0].astype(int)
+                    # selected_bs = self.mat_b_connected[0].astype(int)
                     # self.P[selected_bs,:,0] = MAX_POWER / PRB_NO 
                     # ######
                     # ###############Make PRB alloc GREEDY for user=0                    
@@ -263,11 +271,20 @@ class _main_:
                             # -------------------
                             self.mat_ssl[m, t] = (self.SSL_R**(OMEGA_1)) * ((self.SSL_D)**(1 - OMEGA_1)) # utility function
 
-                            if self.mat_ssl[m, t] >= 0.5:
-                                # C10 constraint
-                                self.reward += 100 * self.mat_ssl[m, t] # between 0 and 100
-                                print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
+                            # if self.mat_ssl[m, t] >= 0.5:
+                            #     # C10 constraint
+                            #     self.reward += 100 * self.mat_ssl[m, t] # between 0 and 100
+                            #     print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
+                            #     self.mat_reward[m, t] = self.reward
+                            #############Reward ########################
+                            for u in range(USER_NO):
+                                self.reward += self.mat_rate[u]
                                 self.mat_reward[m, t] = self.reward
+
+
+                            ######################
+                            
+                            
                             #else:
                             #    self.reward = 0
 
@@ -346,7 +363,7 @@ class _main_:
                 # ---------Next state calculation--------------
                 LC_next = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY,
                               X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
-                self.loc_users_new, self.H_new, self.associator, self.mat_distance, self.mat_b_connected = LC_next.user_location(self.tt, self.loc_user)
+                self.loc_users_new, self.H_new, self.associator, self.mat_distance, self.mat_b_connected = LC_next.user_location(self.tt, self.loc_user, self.mat_bs_loc)
                 # -----------------------------------------------------
                 SC = StateCalculation(self.H_new, self.loc_users_new[self.tt, :]) #  shouldn't it be self.loc_users_new[self.tt, :]?
                 self.next_state = SC._()

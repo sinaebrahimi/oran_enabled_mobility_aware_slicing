@@ -13,7 +13,7 @@ class Agent():
         self.gamma = 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
         self.tau = tau # tau # 0.001 in the paper #was 0.5 in orig code
         self.pointer = 0
-        self.max_size = 600000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
+        self.max_size = 60000# 600000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
         self.memory = ReplayBuffer(self.max_size, input_dims, n_actions)
         self.batch_size = batch_size # was 32 in orig code
         self.n_actions = n_actions

@@ -72,7 +72,8 @@ class Mapping:
             for b in range(self.BS_NO):
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
-                        if self.temp_rho_reshaped[b, k, u] > 0.5:
+                        if self.temp_rho_reshaped[b, k, u] > 0: 
+                        # if self.temp_rho_reshaped[b, k, u] > 0.5: it is between -1 and 1, so i should change it to 0... 
                             self.rho[b, k, u] = 1
             if np.sum(self.rho[:, :, u]) > 0:
                 cnt_u += 1
@@ -87,7 +88,7 @@ class Mapping:
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
         self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### why?
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.scale = 0.1 # What is it? #making it 1 to make it ineffective
+        self.scale = self.MAX_POWER / self.PRB_NO #0.1 # What is it? #making it 1 to make it ineffective #it was 0.01 first
         # self.scale = .01
         self.done_user_power_allocation = 0
         cnt_u = 0
@@ -233,7 +234,7 @@ class StateCalculation: # TO BE COMPLETED
         self.loc_users_reshaped = np.reshape(self.loc_users_t, [self.loc_users_t.size])
 
         self.state[0:self.H.size] = 100 * (self.H_reshaped)/(np.max(self.H_reshaped)) # Normalizing the value for the neural network (avoiding errors)
-        self.state[self.H.size:self.H.size + self.loc_users_t.size] = self.loc_users_reshaped
+        self.state[self.H.size:self.H.size + self.loc_users_t.size] = self.loc_users_reshaped #SHOULDN't WE ALSO NORMALIZE THIS TO /1000?
         self.state = 100 * self.state / np.max(self.state)
         return self.state
 

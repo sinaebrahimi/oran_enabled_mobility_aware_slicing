@@ -1,7 +1,7 @@
 # config.yaml
 USER_NO: 1 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
-PRB_NO: 200 #  (to be updated after consulting with Faouzi)
+PRB_NO: 10 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
 ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas # check also 38.913 for mobility scenarios and classes
 X_LIM: 1000
