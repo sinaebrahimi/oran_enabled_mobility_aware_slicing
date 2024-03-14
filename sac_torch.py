@@ -6,14 +6,16 @@ from buffer import ReplayBuffer
 from networks import ActorNetwork, CriticNetwork, ValueNetwork
 
 class Agent():
-    def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.7,
-            layer1_size = 500, layer2_size = 256, batch_size = 16, reward_scale = 1):
-        self.gamma = 0.8
-        self.tau = tau
+        # def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.7,
+        #     layer1_size = 500, layer2_size = 256, batch_size = 16, reward_scale = 1):
+    def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.001,
+            layer1_size = 500, layer2_size = 256, batch_size = 64, reward_scale = 1):
+        self.gamma = 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
+        self.tau = tau # tau # 0.001 in the paper #was 0.5 in orig code
         self.pointer = 0
-        self.max_size = 12000 # should be larger than T (episode number) # formerly 1000
+        self.max_size = 600000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
         self.memory = ReplayBuffer(self.max_size, input_dims, n_actions)
-        self.batch_size = batch_size
+        self.batch_size = batch_size # was 32 in orig code
         self.n_actions = n_actions
 
         self.actor = ActorNetwork(alpha, input_dims, n_actions = n_actions,
