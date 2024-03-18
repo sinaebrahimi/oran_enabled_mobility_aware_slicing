@@ -14,7 +14,7 @@ from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
 config_file = 'config.yaml'
@@ -74,7 +74,7 @@ class _main_:
         self.mat_fh_links_capacity, self.mat_e2_links_capacity = RLOC_INIT.links_capacity()        
         # -----------------------------------------------
         # self.mat_reward = np.zeros([T])
-        self.mat_reward = np.zeros([MC, T]) # -100 * np.ones([MC, T])
+        self.mat_reward = -100 * np.ones([MC, T]) # np.zeros([MC, T]) # 
         self.mat_satisfied_prb_constraint = np.zeros([MC, T])
         self.mat_satisfied_power_constraint = np.zeros([MC, T])
         self.mat_satisfied_delay_constraint = np.zeros([MC, T])
@@ -105,7 +105,7 @@ class _main_:
         # #---------
         # self.mat_reward_pred = -100 * np.ones([MC, T])
         # self.mat_satisfied_prb_constraint_pred = np.zeros([MC, T])
-        # self.mat_satisfied_power_constraint_pred = np.zeros([MC, T])
+        # self.mat_satisfied_power_constraint_pred = np.zeros([MC, T])e
         # self.mat_satisfied_delay_constraint_pred = np.zeros([MC, T])
         # # self.mat_satisfied_fh_link_capacity_constraint_pred = np.zeros([MC, T])
         # # self.mat_satisfied_e2_link_capacity_constraint_pred = np.zeros([MC, T])
@@ -135,7 +135,7 @@ class _main_:
         self.e1 = BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
         self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
         self.num_actions = self.e2 # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
-        # ---------------------------------------------------------
+        # ---------------------------------------------------------e
         self.s1 = 2 * USER_NO # np.zeros([T, USER_NO, 2]) ## 2 for x,y of t+1
         self.s2 = USER_NO * BS_NO * PRB_NO # channel gain matrix (b,k,u) of t+1 # self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO]) # defined in radio_calc.py -> user_location()
         # add the occupancy/availability of PRBs to the state: rho[b,k,u] of t (current real state (unpredicted)); (we should know which are not being utilized)
@@ -159,7 +159,7 @@ class _main_:
             #maybe reset the LSTM as well
 
             #resetting the SAC agent here!            
-            self.agent = Agent(ALPHA_ACT, BETA_ACT,self.num_actions, self.state_size)
+            self.agent = Agent(ALPHA_ACT, BETA_ACT, self.num_actions, self.state_size)
             self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
             self.decay_var = DECAY_VAR
 
@@ -169,7 +169,7 @@ class _main_:
                 if np.mod(t, 100) == 0:
                     print(style.RED + str(t))
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
-                self.reward = 0 # -100
+                self.reward = -100 # -100
                 # -----------------------------------------------                
                 if t == 0:
                     self.loc_user = self.loc_user_init
@@ -212,7 +212,7 @@ class _main_:
                 MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
                 self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation_greedy_version() ####GREEDY VERSION
-                if self.done_user_prb_allocation == 1:
+                if self.done_user_prb_allocation == 1: 
                     self.mat_rho[m, :, :, :, t] = self.rho #saving rho
                     self.mat_satisfied_prb_constraint[m, t] = 1
                     self.done_user_power_allocation, self.P = MA.ran_power_allocation()
@@ -271,15 +271,15 @@ class _main_:
                             # -------------------
                             self.mat_ssl[m, t] = (self.SSL_R**(OMEGA_1)) * ((self.SSL_D)**(1 - OMEGA_1)) # utility function
 
-                            # if self.mat_ssl[m, t] >= 0.5:
-                            #     # C10 constraint
-                            #     self.reward += 100 * self.mat_ssl[m, t] # between 0 and 100
-                            #     print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
-                            #     self.mat_reward[m, t] = self.reward
-                            #############Reward ########################
-                            for u in range(USER_NO):
-                                self.reward += self.mat_rate[u]
+                            if self.mat_ssl[m, t] >= 0.5:
+                                # C10 constraint
+                                self.reward += 100 * self.mat_ssl[m, t] # between 0 and 100
+                                print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
                                 self.mat_reward[m, t] = self.reward
+                            #############Reward with sum rate########################
+                            # for u in range(USER_NO):
+                            #     self.reward += self.mat_rate[u]
+                            #     self.mat_reward[m, t] = self.reward
 
 
                             ######################
