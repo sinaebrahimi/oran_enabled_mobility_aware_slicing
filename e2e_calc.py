@@ -37,6 +37,7 @@ class Mapping:
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e0 = 0
         self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
+        # self.temp_rho = (self.action[self.e0:self.e1]+1)/2
         self.temp_rho = self.action[self.e0:self.e1]
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.done_user_prb_allocation = 0
@@ -45,8 +46,8 @@ class Mapping:
             for b in range(self.BS_NO):
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
-                        if np.sum(self.rho[b, k, :]) == 0:###########
-                            if self.temp_rho_reshaped[b, k, u] > .5: # rounding up
+                        if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
+                            if self.temp_rho_reshaped[b, k, u] > 0.5: #0: # rounding up # It should be  >0
                                 self.rho[b, k, u] = 1
 
             if np.sum(self.rho[:, :, u]) > 0:
@@ -55,41 +56,41 @@ class Mapping:
         if cnt_u == self.USER_NO:
             self.done_user_prb_allocation = 1
 
-        return self.done_user_prb_allocation, self.rho
+        return self.done_user_prb_allocation, self.rho, cnt_u
     
 
-    def ran_prb_allocation_greedy_version(self):
-        self.e0 = 0
-        self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
-        self.temp_rho = self.action[self.e0:self.e1]
-        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
-        # Initialize variables
-        self.done_user_prb_allocation = 0
-        cnt_u=0
+    # def ran_prb_allocation_greedy_version(self):
+    #     self.e0 = 0
+    #     self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
+    #     self.temp_rho = self.action[self.e0:self.e1]
+    #     self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
+    #     # Initialize variables
+    #     self.done_user_prb_allocation = 0
+    #     cnt_u=0
 
-        # Greedy allocation
-        for u in range(self.USER_NO):
-            for b in range(self.BS_NO):
-                if self.associator[u, b] == 1:
-                    for k in range(self.PRB_NO):
-                        if self.temp_rho_reshaped[b, k, u] > 0: 
-                        # if self.temp_rho_reshaped[b, k, u] > 0.5: it is between -1 and 1, so i should change it to 0... 
-                            self.rho[b, k, u] = 1
-            if np.sum(self.rho[:, :, u]) > 0:
-                cnt_u += 1
+    #     # Greedy allocation
+    #     for u in range(self.USER_NO):
+    #         for b in range(self.BS_NO):
+    #             if self.associator[u, b] == 1:
+    #                 for k in range(self.PRB_NO):
+    #                     if self.temp_rho_reshaped[b, k, u] > 0: 
+    #                     # if self.temp_rho_reshaped[b, k, u] > 0.5: it is between -1 and 1, so i should change it to 0... 
+    #                         self.rho[b, k, u] = 1
+    #         if np.sum(self.rho[:, :, u]) > 0:
+    #             cnt_u += 1
 
-        if cnt_u == self.USER_NO:
-            self.done_user_prb_allocation = 1
+    #     if cnt_u == self.USER_NO:
+    #         self.done_user_prb_allocation = 1
 
-        return self.done_user_prb_allocation, self.rho
+    #     return self.done_user_prb_allocation, self.rho, cnt_u
     
 
     def ran_power_allocation(self):
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
-        self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### why?
+        self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.scale = self.MAX_POWER / self.PRB_NO 
-        # self.scale = .01 # What is it? #making it 1 to make it ineffective #it was 0.01 first
+        #self.scale = self.MAX_POWER / self.PRB_NO 
+        self.scale = .01 # What is it? #making it 1 to make it ineffective #it was 0.01 first
         self.done_user_power_allocation = 0
         cnt_u = 0
         for u in range(self.USER_NO):
@@ -106,7 +107,7 @@ class Mapping:
         if cnt_u == self.USER_NO:
             self.done_user_power_allocation = 1
 
-        return self.done_user_power_allocation, self.P
+        return self.done_user_power_allocation, self.P, cnt_u
 
 
 

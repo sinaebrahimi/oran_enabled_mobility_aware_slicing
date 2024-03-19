@@ -211,7 +211,7 @@ class _main_:
                 # -------Current state calculation---------------------
                 MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
-                self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation_greedy_version() ####GREEDY VERSION
+                self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation() ####GREEDY VERSION ran_prb_allocation_greedy_version()
                 if self.done_user_prb_allocation == 1: 
                     self.mat_rho[m, :, :, :, t] = self.rho #saving rho
                     self.mat_satisfied_prb_constraint[m, t] = 1
@@ -436,27 +436,27 @@ plot_graph("Runtime Duration",
            "Runtime duration (ms)")
 #PRB Allocation?
 # Calculate the average number of PRBs used per BS for SAC and SAC_pred
-avg_prbs_sac = mat_used_prbs_per_user_per_bs.mean(axis=(0,2,3))
-# avg_prbs_sac_pred = mat_used_prbs_per_user_per_bs_pred.mean(axis=(0,2,3))
+# avg_prbs_sac = mat_used_prbs_per_user_per_bs.mean(axis=(0,2,3))
+# # avg_prbs_sac_pred = mat_used_prbs_per_user_per_bs_pred.mean(axis=(0,2,3))
 
-# Create an array with the positions of each bar on the x-axis
-barWidth = 0.3
-r1 = np.arange(len(avg_prbs_sac))
-r2 = [x + barWidth for x in r1]
+# # Create an array with the positions of each bar on the x-axis
+# barWidth = 0.3
+# r1 = np.arange(len(avg_prbs_sac))
+# r2 = [x + barWidth for x in r1]
 
-# Create the bar chart
-plt.bar(r1, avg_prbs_sac, color='b', width=barWidth, edgecolor='grey', label='SAC')
-# plt.bar(r2, avg_prbs_sac_pred, color='r', width=barWidth, edgecolor='grey', label='SAC_pred')
+# # Create the bar chart
+# plt.bar(r1, avg_prbs_sac, color='b', width=barWidth, edgecolor='grey', label='SAC')
+# # plt.bar(r2, avg_prbs_sac_pred, color='r', width=barWidth, edgecolor='grey', label='SAC_pred')
 
-# Add xticks on the middle of the group bars
-plt.xlabel('BS', fontweight='bold')
-plt.xticks([r + barWidth/2 for r in range(BS_NO)], range(1, BS_NO+1))
+# # Add xticks on the middle of the group bars
+# plt.xlabel('BS', fontweight='bold')
+# plt.xticks([r + barWidth/2 for r in range(BS_NO)], range(1, BS_NO+1))
 
-plt.ylabel('Average number of PRBs used')
-plt.legend()
+# plt.ylabel('Average number of PRBs used')
+# plt.legend()
 
-# Show the plot
-plt.show()
+# # Show the plot
+# plt.show()
 
 ########################
 # Select data for BS=0
