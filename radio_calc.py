@@ -190,7 +190,7 @@ class Location:
     
     def plot_user_movement(self, loc_user, associator, t):
         # Set up figure and axis for plotting
-        fig, ax = plt.subplots(figsize=(5, 5))
+        fig, ax = plt.subplots(figsize=(8, 8))
 
         # Plot BSs
         bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs
@@ -204,13 +204,17 @@ class Location:
             user_color = plt.cm.viridis(u / self.USER_NO)  # Use a different color for each user
             valid_indices = np.where(loc_user[:, u, 0] != 0)[0]  # Find valid indices where user position is not (0, 0)
             if len(valid_indices) > 1:  # If there are valid indices (excluding the initialization)
-                ax.plot(loc_user[valid_indices, u, 0], loc_user[valid_indices, u, 1], color=user_color)  # Plot user trajectory
+                # Plot trajectory with different markers for start and end
+                ax.plot(loc_user[valid_indices[0], u, 0], loc_user[valid_indices[0], u, 1], marker='$s$', markersize=8, color=user_color)  # Start marker
+                ax.plot(loc_user[valid_indices[1:], u, 0], loc_user[valid_indices[1:], u, 1], color=user_color)  # Trajectory line
+                ax.plot(loc_user[valid_indices[-1], u, 0], loc_user[valid_indices[-1], u, 1], marker='$e$', markersize=8, color=user_color)  # End marker
+
                 bs_index = np.where(associator[u] == 1)[0][0]  # Get the index of the BS assigned to the user
                 bs_x, bs_y = self.mat_bs_loc[bs_index]
                 if bs_colors[bs_index] == 'grey':
                     bs_colors[bs_index] = plt.cm.viridis(u / self.USER_NO)  # Change color to user's color if BS is occupied
-                ax.arrow(loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-2], u, 1],  # Start of arrow at second last valid timestep
-                        loc_user[valid_indices[-1], u, 0] - loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-1], u, 1] - loc_user[valid_indices[-2], u, 1],  # Arrow direction
+                ax.arrow(loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-2], u, 1],  # Start of arrow at second last timestep
+                        loc_user[valid_indices[-1], u, 0] - loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-1], u, 1] - loc_user[valid_indices[-2], u, 1],
                         head_width=10, head_length=15, fc=user_color, ec=user_color, linestyle='dotted')  # Arrow properties
 
                 # Plot a dotted line from user's last valid position to the assigned BS
@@ -219,16 +223,57 @@ class Location:
         # Set labels and title
         ax.set_xlabel('X Coordinate')
         ax.set_ylabel('Y Coordinate')
-        ax.set_title('User Movement Over Time (t='+str(t)+')')
+        ax.set_title('User Movement Over Time (t=' + str(t) + ')')
 
         # Show legend
         legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=plt.cm.viridis(u / self.USER_NO), markersize=10, label=f'User {u}') for u in range(self.USER_NO)]
         legend_handles.append(plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='grey', markersize=10, label='Unoccupied BS'))
         ax.legend(handles=legend_handles)
-
-        # Show plot
         plt.grid(True)
-        plt.show()    
+        plt.show() 
+
+
+    # def plot_user_movement(self, loc_user, associator, t):
+        # # Set up figure and axis for plotting
+        # fig, ax = plt.subplots(figsize=(8, 8))
+
+        # # Plot BSs
+        # bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs
+        # for b in range(self.BS_NO):
+        #     bs_x, bs_y = self.mat_bs_loc[b]
+        #     ax.scatter(bs_x, bs_y, color=bs_colors[b], marker='s', s=100)  # Use a square marker for BSs
+        #     ax.text(bs_x, bs_y, str(b), color='white', ha='center', va='center')  # Print BS index inside its symbol
+
+        # # Plot users and connections to BSs
+        # for u in range(self.USER_NO):
+        #     user_color = plt.cm.viridis(u / self.USER_NO)  # Use a different color for each user
+        #     valid_indices = np.where(loc_user[:, u, 0] != 0)[0]  # Find valid indices where user position is not (0, 0)
+        #     if len(valid_indices) > 1:  # If there are valid indices (excluding the initialization)
+        #         ax.plot(loc_user[valid_indices, u, 0], loc_user[valid_indices, u, 1], color=user_color)  # Plot user trajectory
+        #         bs_index = np.where(associator[u] == 1)[0][0]  # Get the index of the BS assigned to the user
+        #         bs_x, bs_y = self.mat_bs_loc[bs_index]
+        #         if bs_colors[bs_index] == 'grey':
+        #             bs_colors[bs_index] = plt.cm.viridis(u / self.USER_NO)  # Change color to user's color if BS is occupied
+        #         ax.arrow(loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-2], u, 1],  # Start of arrow at second last valid timestep
+        #                 loc_user[valid_indices[-1], u, 0] - loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-1], u, 1] - loc_user[valid_indices[-2], u, 1],  # Arrow direction
+        #                 head_width=10, head_length=15, fc=user_color, ec=user_color, linestyle='dotted')  # Arrow properties
+
+        #         # Plot a dotted line from user's last valid position to the assigned BS
+        #         ax.plot([loc_user[valid_indices[-1], u, 0], bs_x], [loc_user[valid_indices[-1], u, 1], bs_y], color=user_color, linestyle='dotted')
+
+        # # Set labels and title
+        # ax.set_xlabel('X Coordinate')
+        # ax.set_ylabel('Y Coordinate')
+        # ax.set_title('User Movement Over Time (t='+str(t)+')')
+
+        # # Show legend
+        # legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=plt.cm.viridis(u / self.USER_NO), markersize=10, label=f'User {u}') for u in range(self.USER_NO)]
+        # legend_handles.append(plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='grey', markersize=10, label='Unoccupied BS'))
+        # ax.legend(handles=legend_handles)
+
+        # # Show plot
+        # plt.grid(True)
+        # plt.show()    
 # %%
 
 class RateCalculation:

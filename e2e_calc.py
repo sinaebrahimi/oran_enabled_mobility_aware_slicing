@@ -37,8 +37,8 @@ class Mapping:
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e0 = 0
         self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
-        # self.temp_rho = (self.action[self.e0:self.e1]+1)/2
-        self.temp_rho = self.action[self.e0:self.e1]
+        self.temp_rho = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        #self.temp_rho = self.action[self.e0:self.e1]
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.done_user_prb_allocation = 0
         cnt_u = 0
@@ -47,7 +47,7 @@ class Mapping:
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
                         if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
-                            if self.temp_rho_reshaped[b, k, u] > 0.5: #0: # rounding up # It should be  >0
+                            if self.temp_rho_reshaped[b, k, u] >= 0.5: 
                                 self.rho[b, k, u] = 1
 
             if np.sum(self.rho[:, :, u]) > 0:

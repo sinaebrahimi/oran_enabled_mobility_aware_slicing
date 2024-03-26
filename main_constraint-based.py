@@ -159,6 +159,9 @@ class _main_:
         self.du_ru_adj_matrix, self.ric_du_adj_matrix = LC.adj_matrix()
         for m in range(MC):
             #maybe reset the LSTM as well
+            count_handovers = 0
+
+            #loc_user_m = np.zeros([T, USER_NO, 2])
 
             #resetting the SAC agent here!            
             self.agent = Agent(ALPHA_ACT, BETA_ACT, self.num_actions, self.state_size)
@@ -168,7 +171,7 @@ class _main_:
             for t in range(T-1):
                 start_time = time.time()
                 self.tt = t + 1
-                if np.mod(t, 100) == 0:
+                if np.mod(t, 1000) == 0:
                     print(style.RED + str(t))
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
                 self.reward = 0 # -100
@@ -186,6 +189,7 @@ class _main_:
                 for u in range(USER_NO):
                     if t > 0:
                         if self.mat_b_connected[u] != self.mat_b_connected_episodic[m, u, t-1]:
+                            count_handovers += 1
                             print(style.BLUE + 'Handover in timestep {} for user {}: from RU {} to RU {}'.format(t, u, self.mat_b_connected_episodic[m, u, t-1], self.mat_b_connected[u]))
 
                 # Use these indices to directly assign values
@@ -296,8 +300,10 @@ class _main_:
                                 if self.mat_ssl[m, t] >= 0.5:
                                     # C10 constraint
                                     self.reward += self.mat_ssl[m, t] # between 0 and 1 ###100 * self.mat_ssl[m, t] # between 0 and 100
-                                    print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
+                                    # print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
                                     self.mat_reward[m, t] = self.reward
+                                else:
+                                    print(style.YELLOW + '(Unsatisfied) Reward: {} in episode {} MC {}'.format(self.reward, t, m))
                                 #############Reward with sum rate########################
                                 # for u in range(USER_NO):
                                 #     self.reward += self.mat_rate[u]
@@ -425,8 +431,8 @@ class _main_:
 
                 # plot periodically:
                 plt.clf() # Clear the current figure
-                if t%100 == 0:
-                    WINDOW_SIZE = 100
+                if t%1000 == 0:
+                    WINDOW_SIZE = 200
                     data = [moving_average(self.mat_reward, WINDOW_SIZE)] # [m,t]
                     labels = ['SAC']
                     colors = ['b']  # choose colors for each curve
@@ -434,6 +440,9 @@ class _main_:
                     plt.ion()  # Turn on interactive mode
 
                     plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
+            # in m loop
+            print(style.CYAN + 'Total Handovers  over all timesteps: MC {}= {} HOs'.format(m, count_handovers))
+            LC.plot_user_movement(self.loc_user, self.mat_associator, T-2)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
         return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
 
