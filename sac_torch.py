@@ -8,9 +8,9 @@ from networks import ActorNetwork, CriticNetwork, ValueNetwork
 class Agent():
         # def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.7 #0.001,
         #     layer1_size = 500, layer2_size = 256, batch_size = 16#64, reward_scale = 1):
-    def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.005,
-            layer1_size = 256, layer2_size = 256, batch_size = 256, reward_scale = 1):
-        self.gamma = 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
+    def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.001,
+            layer1_size = 500, layer2_size = 256, batch_size = 64, reward_scale = 1): #input_dims (state size)
+        self.gamma = 0.99 ####CHANGE TO 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
         self.tau = tau # tau # 0.001 in the paper #was 0.5 in orig code
         self.pointer = 0
         self.max_size = 60000# 600000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
