@@ -268,7 +268,7 @@ class _main_:
                             self.mat_satisfied_delay_constraint[m,t] = cnt_u / USER_NO
                             # -------------------------------------
                             #if done_delay_all == 1:
-                            if self.mat_satisfied_delay_constraint[m,t] > 0.8: # or any other threshold!
+                            if self.mat_satisfied_delay_constraint[m,t] > 0.5: # or any other threshold!
 
                                 ##Reward with number of connected devices!
                                 self.sigma_SSL_R = 0
@@ -442,7 +442,7 @@ class _main_:
                     plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
             # in m loop
             print(style.CYAN + 'Total Handovers  over all timesteps: MC {}= {} HOs'.format(m, count_handovers))
-            LC.plot_user_movement(self.loc_user, self.mat_associator, T-2)
+            LC.plot_user_movement(self.loc_user, self.mat_associator, T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
         return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
 

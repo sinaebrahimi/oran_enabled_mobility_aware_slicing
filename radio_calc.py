@@ -22,16 +22,17 @@ class Location:
         self.angle = np.zeros([USER_NO])  # Angle in degrees
         self.distances_du_ru = None  # Distance between DUs and RUs
         self.distances_ric_du = None  # Distance between RIC and DUs
-        mean_angle = 0  # Mean angle
-        std_dev_angle = 30  # Standard deviation of angle
-        for u in range(self.USER_NO):
-            angle_noise = np.random.normal(mean_angle, std_dev_angle)
-            angle = angle_noise if abs(angle_noise) <= 90 else np.sign(angle_noise) * (180 - abs(angle_noise))
-            self.angle[u] = angle
-            if VELOCITY == -1:
-                self.V[u] = random.uniform(0, 40)
-            else:
-                self.V[u] = VELOCITY
+        self.velocity = VELOCITY
+        # mean_angle = 0  # Mean angle
+        # std_dev_angle = 30  # Standard deviation of angle
+        # for u in range(self.USER_NO):
+        #     angle_noise = np.random.normal(mean_angle, std_dev_angle)
+        #     angle = angle_noise if abs(angle_noise) <= 90 else np.sign(angle_noise) * (180 - abs(angle_noise))
+        #     self.angle[u] = angle
+        #     if VELOCITY == -1:
+        #         self.V[u] = random.uniform(0, 40)
+        #     else:
+        #         self.V[u] = VELOCITY
 
     def bs_location(self):
         cells_x = int(np.sqrt(self.BS_NO))
@@ -136,14 +137,6 @@ class Location:
         plt.grid(True)
         plt.show()
 
-# User location and channel gain calculations
-    def user_location(self, t, loc_user, mat_bs_loc): #also calculates channel gain
-        self.mat_bs_loc = mat_bs_loc# Location.bs_location(self)
-        self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.associator = np.zeros([self.USER_NO, self.BS_NO])
-        self.mat_distance = np.zeros([self.BS_NO, self.USER_NO])
-        self.mat_b_connected = np.zeros(self.USER_NO) 
-
         # for u in range(self.USER_NO):
         #     if t == 0:
         #         loc_user[t, u, :] = self.X_LIM * np.random.rand(2)
@@ -151,17 +144,48 @@ class Location:
         #         next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
         #                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
         #         loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
+# User location and channel gain calculations
+    def user_location(self, t, loc_user, mat_bs_loc): #also calculates channel gain
+        self.mat_bs_loc = mat_bs_loc# Location.bs_location(self)
+        self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
+        self.associator = np.zeros([self.USER_NO, self.BS_NO])
+        self.mat_distance = np.zeros([self.BS_NO, self.USER_NO])
+        self.mat_b_connected = np.zeros(self.USER_NO) 
+        std_dev_angle = 1 # 5  # Standard deviation of angle
+
         for u in range(self.USER_NO):
+            # Generate random angle with some persistence
             if t == 0:
-                loc_user[t, u, :] = self.X_LIM * np.random.rand(2)
+                self.angle[u] = np.random.uniform(0, 360)  # Initial random direction
             else:
-                next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
+                # Introduce some persistence in direction changes
+                persistence_factor = 0.99  # Adjust for desired direction change frequency
+                self.angle[u] = self.angle[u] * persistence_factor + np.random.normal(0, std_dev_angle * (1 - persistence_factor))
+
+            if t%20==0: #every 20 time step, we introduce a new random direction
+                self.angle[u] += np.random.uniform(0,180) #90) #degrees
+            
+            # Set user velocity if not defined
+            if self.velocity == -1:
+                self.V[u] = random.uniform(0, 40)  # Random velocity between 0 and 40 units
+            else:
+                self.V[u] = self.velocity
+
+            # Update user location based on angle and velocity
+            if t == 0:
+                loc_user[t, u, :] = self.X_LIM * np.random.rand(2)  # Initial random position
+            else:
+                next_pos = loc_user[t - 1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
                                                     self.V[u] * np.sin(np.radians(self.angle[u]))]
-                # Check if the user is at the boundary or at the corners and make a U-turn
-                if np.any(next_pos >= self.X_LIM) or np.any(next_pos <= 0) or np.all(next_pos == [0, self.X_LIM]) or np.all(next_pos == [self.X_LIM, 0]) or np.all(next_pos == [0, 0]) or np.all(next_pos == [self.X_LIM, self.X_LIM]):
-                    self.angle[u] = (self.angle[u] + 180) % 360
-                    next_pos = loc_user[t-1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
-                                                        self.V[u] * np.sin(np.radians(self.angle[u]))]
+                
+                # Handle boundary conditions with more flexible movement:
+                if np.any(next_pos >= self.X_LIM) or np.any(next_pos <= 0):  # Reached any boundary
+                    # Make a U-turn and add a bias towards the center
+                    center_bias = 180 if np.mean(next_pos) > self.X_LIM / 2 else 0
+                    # self.angle[u] = (self.angle[u] + 180 + center_bias) % 360
+                    self.angle[u] = (self.angle[u] + 90 + center_bias) % 360
+
+                # Ensure user stays within boundaries, even for corner cases
                 loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
 
             for b in range(self.BS_NO):
@@ -188,9 +212,10 @@ class Location:
 
         return loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected
     
+    
     def plot_user_movement(self, loc_user, associator, t):
         # Set up figure and axis for plotting
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(10, 10))
 
         # Plot BSs
         bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs
@@ -205,20 +230,25 @@ class Location:
             valid_indices = np.where(loc_user[:, u, 0] != 0)[0]  # Find valid indices where user position is not (0, 0)
             if len(valid_indices) > 1:  # If there are valid indices (excluding the initialization)
                 # Plot trajectory with different markers for start and end
-                ax.plot(loc_user[valid_indices[0], u, 0], loc_user[valid_indices[0], u, 1], marker='$s$', markersize=8, color=user_color)  # Start marker
+                ax.plot(loc_user[valid_indices[0], u, 0], loc_user[valid_indices[0], u, 1], marker='D', markersize=8, color=user_color)  # Start marker
                 ax.plot(loc_user[valid_indices[1:], u, 0], loc_user[valid_indices[1:], u, 1], color=user_color)  # Trajectory line
-                ax.plot(loc_user[valid_indices[-1], u, 0], loc_user[valid_indices[-1], u, 1], marker='$e$', markersize=8, color=user_color)  # End marker
-
-                bs_index = np.where(associator[u] == 1)[0][0]  # Get the index of the BS assigned to the user
+                ax.plot(loc_user[valid_indices[-1], u, 0], loc_user[valid_indices[-1], u, 1], marker='x', markersize=8, color=user_color)  # End marker
+                
+                bs_index = np.where(associator[u, :, -2] == 1)[0][0]  # Get the index of the BS assigned to the user
                 bs_x, bs_y = self.mat_bs_loc[bs_index]
                 if bs_colors[bs_index] == 'grey':
                     bs_colors[bs_index] = plt.cm.viridis(u / self.USER_NO)  # Change color to user's color if BS is occupied
-                ax.arrow(loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-2], u, 1],  # Start of arrow at second last timestep
-                        loc_user[valid_indices[-1], u, 0] - loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-1], u, 1] - loc_user[valid_indices[-2], u, 1],
-                        head_width=10, head_length=15, fc=user_color, ec=user_color, linestyle='dotted')  # Arrow properties
 
-                # Plot a dotted line from user's last valid position to the assigned BS
-                ax.plot([loc_user[valid_indices[-1], u, 0], bs_x], [loc_user[valid_indices[-1], u, 1], bs_y], color=user_color, linestyle='dotted')
+                # Plot an arrow from user's final position to the assigned BS
+                arrow_start = [loc_user[valid_indices[-1], u, 0], loc_user[valid_indices[-1], u, 1]]  # Final position of the user
+                arrow_end = self.mat_bs_loc[bs_index]  # Coordinates of the assigned BS
+                arrow_dx = arrow_end[0] - arrow_start[0]
+                arrow_dy = arrow_end[1] - arrow_start[1]
+                ax.arrow(arrow_start[0], arrow_start[1], arrow_dx, arrow_dy,
+                         head_width=10, head_length=15, fc=user_color, ec=user_color, linestyle='dotted')  # Arrow properties
+
+                # Plot a dotted line from user's final position to the assigned BS
+                ax.plot([arrow_start[0], arrow_end[0]], [arrow_start[1], arrow_end[1]], color=user_color, linestyle='dotted')
 
         # Set labels and title
         ax.set_xlabel('X Coordinate')
@@ -231,6 +261,51 @@ class Location:
         ax.legend(handles=legend_handles)
         plt.grid(True)
         plt.show() 
+
+        
+    # def plot_user_movement(self, loc_user, associator, t):
+    #     # Set up figure and axis for plotting
+    #     fig, ax = plt.subplots(figsize=(10, 10))
+
+    #     # Plot BSs
+    #     bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs
+    #     for b in range(self.BS_NO):
+    #         bs_x, bs_y = self.mat_bs_loc[b]
+    #         ax.scatter(bs_x, bs_y, color=bs_colors[b], marker='s', s=100)  # Use a square marker for BSs
+    #         ax.text(bs_x, bs_y, str(b), color='white', ha='center', va='center')  # Print BS index inside its symbol
+
+    #     # Plot users and connections to BSs
+    #     for u in range(self.USER_NO):
+    #         user_color = plt.cm.viridis(u / self.USER_NO)  # Use a different color for each user
+    #         valid_indices = np.where(loc_user[:, u, 0] != 0)[0]  # Find valid indices where user position is not (0, 0)
+    #         if len(valid_indices) > 1:  # If there are valid indices (excluding the initialization)
+    #             # Plot trajectory with different markers for start and end
+    #             ax.plot(loc_user[valid_indices[0], u, 0], loc_user[valid_indices[0], u, 1], marker='D', markersize=8, color=user_color)  # Start marker
+    #             ax.plot(loc_user[valid_indices[1:], u, 0], loc_user[valid_indices[1:], u, 1], color=user_color)  # Trajectory line
+    #             ax.plot(loc_user[valid_indices[-1], u, 0], loc_user[valid_indices[-1], u, 1], marker='x', markersize=8, color=user_color)  # End marker
+
+    #             bs_index = np.where(associator[u] == 1)[0][0]  # Get the index of the BS assigned to the user
+    #             bs_x, bs_y = self.mat_bs_loc[bs_index]
+    #             if bs_colors[bs_index] == 'grey':
+    #                 bs_colors[bs_index] = plt.cm.viridis(u / self.USER_NO)  # Change color to user's color if BS is occupied
+    #             ax.arrow(loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-2], u, 1],  # Start of arrow at second last timestep
+    #                     loc_user[valid_indices[-1], u, 0] - loc_user[valid_indices[-2], u, 0], loc_user[valid_indices[-1], u, 1] - loc_user[valid_indices[-2], u, 1],
+    #                     head_width=10, head_length=15, fc=user_color, ec=user_color, linestyle='dotted')  # Arrow properties
+
+    #             # Plot a dotted line from user's last valid position to the assigned BS
+    #             ax.plot([loc_user[valid_indices[-1], u, 0], bs_x], [loc_user[valid_indices[-1], u, 1], bs_y], color=user_color, linestyle='dotted')
+
+    #     # Set labels and title
+    #     ax.set_xlabel('X Coordinate')
+    #     ax.set_ylabel('Y Coordinate')
+    #     ax.set_title('User Movement Over Time (t=' + str(t) + ')')
+
+    #     # Show legend
+    #     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=plt.cm.viridis(u / self.USER_NO), markersize=10, label=f'User {u}') for u in range(self.USER_NO)]
+    #     legend_handles.append(plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='grey', markersize=10, label='Unoccupied BS'))
+    #     ax.legend(handles=legend_handles)
+    #     plt.grid(True)
+    #     plt.show() 
 
 
     # def plot_user_movement(self, loc_user, associator, t):
