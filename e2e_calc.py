@@ -37,9 +37,11 @@ class Mapping:
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e0 = 0
         self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
-        self.temp_rho = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
-        self.temp_rho = np.clip(self.temp_rho, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
-        #self.temp_rho = self.action[self.e0:self.e1]
+        # Now the action is clipped within 0 and 1, no need to normalize it
+        # self.temp_rho = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        # self.temp_rho = np.clip(self.temp_rho, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+
+        self.temp_rho = self.action[self.e0:self.e1]
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.done_user_prb_allocation = 0
         cnt_u = 0
@@ -48,7 +50,7 @@ class Mapping:
                 if self.associator[u, b] == 1:
                     for k in range(self.PRB_NO):
                         if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
-                            if self.temp_rho_reshaped[b, k, u] >= 0.5: 
+                            if self.temp_rho_reshaped[b, k, u] >= 0.5: # binarizing the action for rho
                                 self.rho[b, k, u] = 1
 
             if np.sum(self.rho[:, :, u]) > 0:
@@ -88,11 +90,13 @@ class Mapping:
 
     def ran_power_allocation(self):
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
-        self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
-        self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+        # Now the action is clipped within 0 and 1, no need to normalize it
+        self.temp_p = self.action[self.e1:self.e2]
+        # self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
+        # self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
-        #self.scale = self.MAX_POWER / self.PRB_NO 
-        self.scale = .01 # What is it? #making it 1 to make it ineffective #it was 0.01 first
+        self.scale = self.MAX_POWER / self.PRB_NO # checked TNSM code again. they multiply the action by the MAX_POWER. but they don't have PRBs... they have subchannels (10 per BS)
+        #self.scale = .01 # What is it? #making it 1 to make it ineffective #it was 0.01 first
         self.done_user_power_allocation = 0
         cnt_u = 0
         for u in range(self.USER_NO):

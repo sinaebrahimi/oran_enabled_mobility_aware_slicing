@@ -91,7 +91,7 @@ class ActorNetwork(nn.Module):
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac')
         self.max_action = max_action
-        self.reparam_noise = 1e-6
+        self.reparam_noise = 1e-6 # probably it is the entropy coefficient, which balances between exploration and exploitation in the policy
 
         self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)

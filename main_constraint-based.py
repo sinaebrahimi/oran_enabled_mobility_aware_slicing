@@ -218,7 +218,7 @@ class _main_:
                 self.noise = self.noise * self.var
                 self.action = self.agent.choose_action(self.state)  # Choosing the action
                 self.action += self.noise
-                self.action = np.clip(self.action, -1, 1)
+                self.action = np.clip(self.action, 0, 1)
                 # -------Current state calculation---------------------
                 MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
@@ -240,7 +240,7 @@ class _main_:
                         self.mat_power[m, u, t] = np.sum(self.P[:, :, u]) # summing the power allocated to all user PRBs
                     
                     self.mat_satisfied_power_constraint[m, t] = power_cnt_u / USER_NO # ratio of the users with satisfied power allocation
-                    if self.mat_satisfied_power_constraint[m, t] >0.8: #if self.done_user_power_allocation == 1:
+                    if self.mat_satisfied_power_constraint[m, t] >0.5: #if self.done_user_power_allocation == 1:
                         #self.mat_satisfied_power_constraint[m, t] = 1
                         
                         RC = RateCalculation(self.P, self.rho, self.H, self.associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
@@ -266,6 +266,8 @@ class _main_:
                             cnt_u, done_delay_all,  self.mat_delay_tot = D._()
                             self.monte_mat_delay_tot[m, :, t] = self.mat_delay_tot                        
                             self.mat_satisfied_delay_constraint[m,t] = cnt_u / USER_NO
+                            if self.mat_satisfied_delay_constraint[m,t] < 0.5:
+                                print(style.RED + 'Unsatisfied delay constraint in episode {} MC {}'.format(t, m))
                             # -------------------------------------
                             #if done_delay_all == 1:
                             if self.mat_satisfied_delay_constraint[m,t] > 0.5: # or any other threshold!
