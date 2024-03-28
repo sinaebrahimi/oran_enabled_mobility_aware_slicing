@@ -38,6 +38,7 @@ class Mapping:
         self.e0 = 0
         self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
         self.temp_rho = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        self.temp_rho = np.clip(self.temp_rho, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         #self.temp_rho = self.action[self.e0:self.e1]
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.done_user_prb_allocation = 0
@@ -88,6 +89,7 @@ class Mapping:
     def ran_power_allocation(self):
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
         self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
         #self.scale = self.MAX_POWER / self.PRB_NO 
         self.scale = .01 # What is it? #making it 1 to make it ineffective #it was 0.01 first
@@ -123,7 +125,7 @@ class Delay:
         self.associator = associator
         self.E2_BW_CAPACITY = E2_BW_CAPACITY
         self.mat_specs = mat_specs
-        self.speed_of_light = 3e8 # 300000000 # 3*10^8 m/s (exactly equal to 299,792,458 metres per second)
+        self.speed_of_light = 3e8 # 300000000 # 3*10^8 m/s (exactly eq5ual to 299,792,458 metres per second)
         self.mat_distance_uu = mat_distance_uu
         self.distances_ric_du = distances_ric_du
         self.distances_du_ru = distances_du_ru
