@@ -12,9 +12,10 @@ from initialization import Specifications
 from radio_calc import Location, RateCalculation
 from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
+np.random.seed(1372) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
 config_file = 'config.yaml'
@@ -48,7 +49,7 @@ VELOCITY = config['VELOCITY']
 CONST_D_MAX = config['CONST_D_MAX']
 CONST_R_MIN = config['CONST_R_MIN']
 PACKET_SIZE = config['PACKET_SIZE']
-PACKET_NO = config['PACKET_NO']
+# PACKET_NO = config['PACKET_NO']
 RAYLEIGH_SCALE = config['RAYLEIGH_SCALE']
 T = config['T']
 MC = config['MC']
@@ -64,7 +65,7 @@ DECAY_VAR = config['DECAY_VAR']
 
 class _main_:
     def __init__(self, MC, T):
-        SP = Specifications(USER_NO, SLICE_NO, CONST_D_MAX, CONST_R_MIN, PACKET_SIZE, PACKET_NO)
+        SP = Specifications(USER_NO, SLICE_NO, CONST_D_MAX, CONST_R_MIN, PACKET_SIZE)
         self.mat_specs = SP._()
         # --------------------------------------
         self.loc_user_init = np.zeros([T, USER_NO, 2]) # initializing user_location... t=0 location will be changed randomly in the RadioCalc.user_location()
@@ -218,13 +219,15 @@ class _main_:
                 self.noise = self.noise * self.var
                 self.action = self.agent.choose_action(self.state)  # Choosing the action
                 self.action += self.noise
-                self.action = np.clip(self.action, 0, 1)
+                self.action = np.clip(self.action, -1, 1) # because of tanh activation function
+                # self.action = np.clip(self.action, 0, 1)
                 # -------Current state calculation---------------------
                 MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
                 self.done_user_prb_allocation, self.rho, prb_cnt_u = MA.ran_prb_allocation() ####GREEDY VERSION ran_prb_allocation_greedy_version
                 self.mat_satisfied_prb_constraint[m, t] = prb_cnt_u / USER_NO # ratio of the users with satisfied PRB allocation
-                if self.mat_satisfied_prb_constraint[m, t] > 0.8: #if self.done_user_prb_allocation == 1: 
+                if self.mat_satisfied_prb_constraint[m, t] > 0: #relaxed the constraint
+                #BEFORE: if self.mat_satisfied_prb_constraint[m, t] > 0.8: #if self.done_user_prb_allocation == 1: 
                     self.mat_rho[m, :, :, :, t] = self.rho #saving rho
                     #self.mat_satisfied_prb_constraint[m, t] = 1
                     self.done_user_power_allocation, self.P, power_cnt_u = MA.ran_power_allocation()
@@ -240,7 +243,7 @@ class _main_:
                         self.mat_power[m, u, t] = np.sum(self.P[:, :, u]) # summing the power allocated to all user PRBs
                     
                     self.mat_satisfied_power_constraint[m, t] = power_cnt_u / USER_NO # ratio of the users with satisfied power allocation
-                    if self.mat_satisfied_power_constraint[m, t] >0.5: #if self.done_user_power_allocation == 1:
+                    if self.mat_satisfied_power_constraint[m, t] > 0: # 0.5: #if self.done_user_power_allocation == 1:
                         #self.mat_satisfied_power_constraint[m, t] = 1
                         
                         RC = RateCalculation(self.P, self.rho, self.H, self.associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
@@ -257,7 +260,7 @@ class _main_:
                                     cnt_rate_u += (self.mat_rate[u] >= self.R_s)
 
                         self.mat_satisfied_rate_constraint[m, t] = cnt_rate_u / USER_NO
-                        if self.mat_satisfied_rate_constraint[m, t] > 0.8: # or any other threshold!
+                        if self.mat_satisfied_rate_constraint[m, t] > 0: # 0.5: # or any other threshold!
                             #--------------------------------------
                             D = Delay(self.mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, self.mat_specs, self.associator, 
                                     self.mat_distance, self.distances_ric_du, self.distances_du_ru, self.du_ru_adj_matrix, self.ric_du_adj_matrix, 
@@ -270,7 +273,7 @@ class _main_:
                                 print(style.RED + 'Unsatisfied delay constraint in episode {} MC {}'.format(t, m))
                             # -------------------------------------
                             #if done_delay_all == 1:
-                            if self.mat_satisfied_delay_constraint[m,t] > 0.5: # or any other threshold!
+                            if self.mat_satisfied_delay_constraint[m,t] > 0: # 0.5: # or any other threshold!
 
                                 ##Reward with number of connected devices!
                                 self.sigma_SSL_R = 0
@@ -299,7 +302,7 @@ class _main_:
                                 # -------------------
                                 self.mat_ssl[m, t] = (self.SSL_R**(OMEGA_1)) * ((self.SSL_D)**(1 - OMEGA_1)) # utility function
 
-                                if self.mat_ssl[m, t] >= 0.5:
+                                if self.mat_ssl[m, t] >=0: #  >= 0.5:
                                     # C10 constraint
                                     self.reward += self.mat_ssl[m, t] # between 0 and 1 ###100 * self.mat_ssl[m, t] # between 0 and 100
                                     # print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
@@ -316,7 +319,7 @@ class _main_:
                                 
                                 
                                 #else:
-                                #    self.reward = 0
+                                #    self.reward = 0 # no need as it is initialized as 0
                             else:
                                 self.reward = self.mat_satisfied_delay_constraint[m,t] - 1 #between -1 and 0 (If the satisfaction is 0.7, reward would be -0.3)
                                 self.mat_reward[m, t] = self.reward
@@ -441,7 +444,7 @@ class _main_:
                     linestyles = ['-']  # choose line styles for each curve
                     plt.ion()  # Turn on interactive mode
 
-                    plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
+                    #plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
             # in m loop
             print(style.CYAN + 'Total Handovers  over all timesteps: MC {}= {} HOs'.format(m, count_handovers))
             LC.plot_user_movement(self.loc_user, self.mat_associator, T-1)
@@ -505,24 +508,24 @@ plot_graph("Runtime Duration",
 
 ########################
 # Select data for BS=0
-prbs_per_user_per_bs_0 = mat_used_prbs_per_user_per_bs[:, 4, :, :]
-# prbs_per_user_per_bs_pred_0 = mat_used_prbs_per_user_per_bs_pred[:, 4, :, :]
+# prbs_per_user_per_bs_0 = mat_used_prbs_per_user_per_bs[:, 0, :, :]
+# # prbs_per_user_per_bs_pred_0 = mat_used_prbs_per_user_per_bs_pred[:, 4, :, :]
 
-# Sum over users and then calculate averages over Monte Carlo runs
-sum_prbs_per_user_per_bs_0 = np.sum(prbs_per_user_per_bs_0, axis=1)
-# sum_prbs_per_user_per_bs_pred_0 = np.sum(prbs_per_user_per_bs_pred_0, axis=1)
+# # Sum over users and then calculate averages over Monte Carlo runs
+# sum_prbs_per_user_per_bs_0 = np.sum(prbs_per_user_per_bs_0, axis=1)
+# # sum_prbs_per_user_per_bs_pred_0 = np.sum(prbs_per_user_per_bs_pred_0, axis=1)
 
-avg_prbs_per_user_per_bs_0 = np.mean(sum_prbs_per_user_per_bs_0, axis=0)
-# avg_prbs_per_user_per_bs_pred_0 = np.mean(sum_prbs_per_user_per_bs_pred_0, axis=0)
+# avg_prbs_per_user_per_bs_0 = np.mean(sum_prbs_per_user_per_bs_0, axis=0)
+# # avg_prbs_per_user_per_bs_pred_0 = np.mean(sum_prbs_per_user_per_bs_pred_0, axis=0)
 
-# Plot the averages using your function
-plot_graph('Overall PRBs used for BS=4 for SAC algorithm',
-           [avg_prbs_per_user_per_bs_0],
-           ['SAC'],
-           ['b'],
-           ['-'],
-           'T',
-           'Overall PRBs used in BS 4')
+# # Plot the averages using your function
+# plot_graph('Overall PRBs used for BS=4 for SAC algorithm',
+#            [avg_prbs_per_user_per_bs_0],
+#            ['SAC'],
+#            ['b'],
+#            ['-'],
+#            'T',
+#            'Overall PRBs used in BS 4')
 # plot_graph('Overall PRBs used for BS=4 for SAC and SAC_pred algorithms',
 #            [avg_prbs_per_user_per_bs_0, avg_prbs_per_user_per_bs_pred_0],
 #            ['SAC', 'SAC_pred'],
@@ -537,7 +540,7 @@ avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(0,1))
 
 # Plot the averages using your function
 plot_graph('Avg PRBs used per user for SAC algorithm',
-           [avg_prbs_per_user],
+           [moving_average(avg_prbs_per_user, window_size)],
            ['SAC'],
            ['b'],
            ['-'],
@@ -550,6 +553,37 @@ plot_graph('Avg PRBs used per user for SAC algorithm',
 #            ['-', '--'],
 #            'T',
 #            'Average PRBs used per user')
+# Fairness for PRBs
+# Calculate PRB utilization for each user at each time step and for each MC run
+prb_utilization = np.sum(mat_rho, axis=(2, 1))  # Sum over PRBs and BSs
+
+# Calculate proportional fairness score for each time step
+fairness_scores = np.zeros((MC, T))
+
+for mc in range(MC):
+    for t in range(T):
+        # Calculate Jain's fairness index for time step t in MC run mc
+        sum_of_prbs = np.sum(prb_utilization[mc, :, t])
+        sum_of_squares = np.sum(prb_utilization[mc, :, t] ** 2)
+        # Handle potential division by zero or NaN
+        if sum_of_prbs == 0 or np.isnan(sum_of_squares):
+            fairness_scores[mc, t] = 0  # Set fairness score to 0
+        else:
+            fairness_scores[mc, t] = (sum_of_prbs ** 2) / (BS_NO * sum_of_squares)
+
+# Average fairness scores over all MC runs
+avg_fairness_scores = np.mean(fairness_scores, axis=0)
+normalized_fairness_scores = (avg_fairness_scores - np.min(avg_fairness_scores)) / (np.max(avg_fairness_scores) - np.min(avg_fairness_scores))
+
+
+plot_graph("Jain's fairness index for PRB allocation",
+           [moving_average(normalized_fairness_scores, window_size)],
+           ['SAC'],
+           ['blue'],
+           ['solid'],
+           "Episode",
+           "Mean fairness score")
+
 # %%REWARD%%%%
 mat_reward_average_over_m = np.average(mat_reward, axis=0)
 # mat_reward_average_over_m_pred = np.average(mat_reward_pred, axis=0)
