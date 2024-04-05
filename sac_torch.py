@@ -5,15 +5,15 @@ import numpy as np
 from buffer import ReplayBuffer
 from networks import ActorNetwork, CriticNetwork, ValueNetwork
 
-class Agent():
+class Agent(): # tau=0.001
         # def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.7 #0.001,
         #     layer1_size = 500, layer2_size = 256, batch_size = 16#64, reward_scale = 1):tau=0.001
     def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.001,
-            layer1_size = 500, layer2_size = 256, batch_size = 128, reward_scale = 1): #input_dims (state size)
-        self.gamma = 0.8 #0.8 ####CHANGE TO 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
+            layer1_size = 500, layer2_size = 256, batch_size = 32, reward_scale = 0.2): #input_dims (state size)
+        self.gamma = 0.8 #0.8 # 0.5 to 0.8###if it is near 1, it'd be very dependent to the past; therefore, not very adaptable to changes #0.8 ####CHANGE TO 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
         self.tau = tau # tau # 0.001 in the paper #was 0.5 in orig code
         self.pointer = 0
-        self.max_size = 60000# 600000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
+        self.max_size = 40000 #40000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
         self.memory = ReplayBuffer(self.max_size, input_dims, n_actions)
         self.batch_size = batch_size # was 32 in orig code
         self.n_actions = n_actions
@@ -37,7 +37,7 @@ class Agent():
         return actions.cpu().detach().numpy()[0]
 
     def memorize(self, state, action, reward, new_state):
-        self.memory.store_transition(state, action, reward, new_state)
+        self.memory.store_transition(state, action, reward, new_state) # can put 0.2 or 2 to multiply to reward for reward scaling
         self.pointer += 1
 
 
