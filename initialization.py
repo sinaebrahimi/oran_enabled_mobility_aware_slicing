@@ -2,7 +2,7 @@ import numpy as np
 #import networkx as nx
 
 class Specifications:
-    def __init__(self, USER_NO, SLICE_NO, CONST_D_MAX, CONST_R_MIN, PACKET_SIZE, PACKET_NO):
+    def __init__(self, USER_NO, SLICE_NO, CONST_D_MAX, CONST_R_MIN, PACKET_SIZE):
         self.USER_NO = USER_NO
         self.SLICE_NO = SLICE_NO
 
@@ -18,20 +18,22 @@ class Specifications:
 
         #self.user_min_rate = 1  # In Mbps (former case)
         if CONST_R_MIN == -1:
-            self.min_rate = [100, 1, 0.02] # eMBB, URLLC, mMTC # user plane rate in Mbps
+            self.list_min_rate = [20, 1, 0.02] # eMBB #fromerly 100, URLLC, mMTC # user plane rate in Mbps
             #self.list_min_rate = [1, 5, 10, 20, 30] #[1, 1, 1, 1, 1] # [1, 3, 5, 10, 20] # In Mbps (to be updated after consulting with Faouzi)
         else:
             self.list_min_rate = [CONST_R_MIN] * SLICE_NO
 
         if PACKET_SIZE == -1:
-            self.packet_size = [0.012, 0.000256, 0.0008] # in mbits # 1500, 32, 100 bytes
+            self.packet_size = [0.012, 0.000256, 0.0008] # in mbits # eMBB: 1500, URLLC: 32, mMTC: 100 bytes
         else:
             self.packet_size = [PACKET_SIZE] * SLICE_NO
+        
+        # Convert lists to numpy arrays
+        list_min_rate_array = np.array(self.list_min_rate)
+        packet_size_array = np.array(self.packet_size)
+        # Perform element-wise division
+        self.packet_no = np.ceil(list_min_rate_array / packet_size_array) #packet_no per timeslot length # static for now #  it can be poisson like 10 packet per second
 
-        if PACKET_NO == -1:
-            self.packet_no = [1000, 100, 10] 
-        else:
-            self.packet_no = [PACKET_NO] * SLICE_NO
     def _(self):
         for u in range(self.USER_NO):
             user_selected_slice = np.random.randint(0, self.SLICE_NO) # choosing the slice type for the user randomly
