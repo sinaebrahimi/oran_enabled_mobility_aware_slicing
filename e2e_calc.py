@@ -33,33 +33,86 @@ class Mapping:
 #%% RAN mapping:
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
     #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
-        
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e0 = 0
         self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
-        # Now the action is clipped within 0 and 1, no need to normalize it
-        # self.temp_rho = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
-        # self.temp_rho = np.clip(self.temp_rho, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
-
-        self.temp_rho = self.action[self.e0:self.e1]
+        self.temp_rho = (self.action[self.e0:self.e1]+1)/2 
+        #self.temp_rho = np.clip(self.temp_rho, 0, 1) 
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.done_user_prb_allocation = 0
-        cnt_u = 0
-        for u in range(self.USER_NO):
+        cnt_u = 0   
+        # heuristic (B): assigning the PRB to the user with the highest random action value
+        for k in range(self.PRB_NO):
             for b in range(self.BS_NO):
-                if self.associator[u, b] == 1:
-                    for k in range(self.PRB_NO):
-                        if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
-                            if self.temp_rho_reshaped[b, k, u] >= 0.5: # binarizing the action for rho
-                                self.rho[b, k, u] = 1
+                list_u = np.where(self.associator[:, b] == 1) #[0] #which users are associated with the BS
+                self.temp_prb_assoc = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
+                self.temp_prb_assoc[b, k, list_u] = 1 ##possible error
+                self.temp_prb_assoc_prod = self.temp_prb_assoc * self.temp_rho_reshaped
+                if len(list_u) > 0: # Check if there are any associated users
+                    if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
+                        self.temp_u = np.argmax(self.temp_prb_assoc_prod[b, k, :]) # [0]
+                        if self.associator[self.temp_u, b] == 1:
+                            self.rho[b, k, self.temp_u] = 1
 
-            if np.sum(self.rho[:, :, u]) > 0:
+        for b in range(self.BS_NO):
+            if np.sum(self.rho[b, :, :]) < self.PRB_NO:
+                list_u = np.where(self.associator[:, b] == 1)[0]
+                # Find the PRBs that are not allocated yet
+                unallocated_prbs = np.where(np.sum(self.rho[b, :, :], axis=1) == 0)[0]
+                # Randomly allocate the unallocated PRBs to the associated users
+                for prb in unallocated_prbs:
+                    if len(list_u) > 0:  # Check if there are any associated users
+                        self.rho[b, prb, np.random.choice(list_u)] = 1
+
+        for u in range(self.USER_NO): #ensuring each user has at least one PRB
+            if np.sum(self.rho[:, :, u]) >= 1:
                 cnt_u += 1
+        
+        
+        # GREEDY VERSION (A)
+        # for u in range(self.USER_NO):
+        #     for b in range(self.BS_NO):
+        #         if self.associator[u, b] == 1:
+        #             for k in range(self.PRB_NO):
+        #                 if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
+        #                     if self.temp_rho_reshaped[b, k, u] >= 0: # greedy
+        #                         self.rho[b, k, u] = 1
 
+        #     if np.sum(self.rho[:, :, u]) > 0:
+        #         cnt_u += 1
+
+        ##################################
         if cnt_u == self.USER_NO:
             self.done_user_prb_allocation = 1
-
         return self.done_user_prb_allocation, self.rho, cnt_u
+        
+    # def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
+    #     self.e0 = 0
+    #     self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
+    #     # Now the action is clipped within 0 and 1, no need to normalize it
+    #     self.temp_rho = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+    #     self.temp_rho = np.clip(self.temp_rho, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+
+    #     # self.temp_rho = self.action[self.e0:self.e1]
+    #     self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
+    #     self.done_user_prb_allocation = 0
+    #     cnt_u = 0
+    #     for u in range(self.USER_NO):
+    #         for b in range(self.BS_NO):
+    #             if self.associator[u, b] == 1:
+    #                 for k in range(self.PRB_NO):
+    #                     if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
+    #                         if self.temp_rho_reshaped[b, k, u] >= 0.5: # binarizing the action for rho
+    #                         #if self.temp_rho_reshaped[b, k, u] >= 0.9 - 1/(np.sum(self.associator[:, b])): # binarizing the action for rho
+    #                             self.rho[b, k, u] = 1
+
+    #         if np.sum(self.rho[:, :, u]) > 0:
+    #             cnt_u += 1
+
+    #     if cnt_u == self.USER_NO:
+    #         self.done_user_prb_allocation = 1
+
+    #     return self.done_user_prb_allocation, self.rho, cnt_u
     
 
     # def ran_prb_allocation_greedy_version(self):
@@ -91,9 +144,9 @@ class Mapping:
     def ran_power_allocation(self):
         self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
         # Now the action is clipped within 0 and 1, no need to normalize it
-        self.temp_p = self.action[self.e1:self.e2]
-        # self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
-        # self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+        # self.temp_p = self.action[self.e1:self.e2]
+        self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.scale = self.MAX_POWER / self.PRB_NO # checked TNSM code again. they multiply the action by the MAX_POWER. but they don't have PRBs... they have subchannels (10 per BS)
         #self.scale = .01 # What is it? #making it 1 to make it ineffective #it was 0.01 first
