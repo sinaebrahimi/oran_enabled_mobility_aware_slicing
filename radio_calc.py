@@ -254,6 +254,8 @@ class Location:
         ax.set_xlabel('X Coordinate')
         ax.set_ylabel('Y Coordinate')
         ax.set_title('User Movement Over Time (t=' + str(t) + ')')
+        ax.set_xlim(0, self.X_LIM)
+        ax.set_ylim(0, self.X_LIM)
 
         # Show legend
         legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=plt.cm.viridis(u / self.USER_NO), markersize=10, label=f'User {u}') for u in range(self.USER_NO)]
