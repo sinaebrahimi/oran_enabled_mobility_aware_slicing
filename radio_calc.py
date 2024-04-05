@@ -173,6 +173,8 @@ class Location:
 
             # Update user location based on angle and velocity
             if t == 0:
+                # loc_user[t, u, 0] = 500  # Initial position
+                # loc_user[t, u, 1] = 450  # Initial position
                 loc_user[t, u, :] = self.X_LIM * np.random.rand(2)  # Initial random position
             else:
                 next_pos = loc_user[t - 1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
