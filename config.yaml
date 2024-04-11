@@ -10,19 +10,19 @@ Y_LIM: 1000
 DU_NO: 1 # all connected to the CU
 RU_PER_DU_NO: 1 # Each DU has 4 RUs; Total number of RUs = 4*2 = 8
 #BS_NO: 20 # should be equal to RU_PER_DU_NO*DU_NO # static for now; Location.bs_location() --- now it is bound to 4 BSs. Can be changed later
-FH_BW_CAPACITY: 5000 # Mbps (5 Gbps) (link between RU and its DU)
-E2_BW_CAPACITY: 100000 # Mbps (100 Gbps) (link between DU and Near-RT RIC (equal to F1, which is between DU and CU))
+FH_BW_CAPACITY: 5000 # 100 Mbps in twc23kavehmadani# Mbps (5 Gbps) (link between RU and its DU) #
+E2_BW_CAPACITY: 100000 # 5 Gbps in twc23kavehmadani #Mbps (100 Gbps) (link between DU and Near-RT RIC (equal to F1, which is between DU and CU))
 #VM_NO: 9 # 6
 #VNF_NO: 5 # 5
 #NODE_NO: 12
 SLICE_NO: 1 #5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
 MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
 OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
-VELOCITY: 10 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
+VELOCITY: 0 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
 CONST_D_MAX: 20 #-1 # ms
 CONST_R_MIN: 10 #-1 # Mbps  
 #ISOLATION_ORDER: -1
-PACKET_SIZE: 0.012 # based on 1500 bytes for eMBB # in mbits # -1 #
+PACKET_SIZE: 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23kavehmadani: 1 KB for URLLC and 125 KB for eMBB
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#

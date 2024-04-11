@@ -88,7 +88,7 @@ class _main_:
         self.mat_ssl_delay = np.zeros([MC, T])
         self.mat_ssl = np.zeros([MC, T])
         self.mat_episode_runtime = np.zeros([MC, T])
-        self.mat_associator = np.zeros([USER_NO, BS_NO, T]) # only get the latest MC
+        self.mat_associator = np.zeros([MC, USER_NO, BS_NO, T]) # only get the latest MC
 
         self.shannon = np.zeros([MC, USER_NO, T])
 
@@ -169,6 +169,9 @@ class _main_:
             self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
             self.decay_var = DECAY_VAR
 
+            #FOR episodes! for RL
+            # agent should remain the same for all episodes # don't initialize the agent
+            # first we need to initialize the locations/speeds, etc.
             for t in range(T-1):
                 start_time = time.time()
                 self.tt = t + 1
@@ -180,7 +183,7 @@ class _main_:
                 if t == 0:
                     self.loc_user = self.loc_user_init
                 self.loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected = LC.user_location(t, self.loc_user, self.mat_bs_loc)
-                self.mat_associator[:, :, t] = self.associator
+                self.mat_associator[m, :, :, t] = self.associator
                 #print(self.loc_user[t,0,:])
                 #print('-')
                 self.mat_b_connected_episodic[m, :, t] = self.mat_b_connected
@@ -245,7 +248,8 @@ class _main_:
                     self.mat_satisfied_power_constraint[m, t] = power_cnt_u / USER_NO # ratio of the users with satisfied power allocation
                     if self.mat_satisfied_power_constraint[m, t] > 0: # 0.5: #if self.done_user_power_allocation == 1:
                         #self.mat_satisfied_power_constraint[m, t] = 1
-                        
+                        if t== 6000:
+                            print('here')
                         RC = RateCalculation(self.P, self.rho, self.H, self.associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
                         self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user = RC._()
                         self.mat_used_prbs_per_user_per_bs[m, :, :, t] = self.used_prbs_per_user_per_bs
@@ -447,7 +451,7 @@ class _main_:
                     #plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
             # in m loop
             print(style.CYAN + 'Total Handovers  over all timesteps: MC {}= {} HOs'.format(m, count_handovers))
-            LC.plot_user_movement(self.loc_user, self.mat_associator, T-1)
+            LC.plot_user_movement(self.loc_user, self.mat_associator[m, :, :, :], T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
         return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
 
