@@ -148,9 +148,9 @@ class Location:
     def user_location(self, t, loc_user, mat_bs_loc): #also calculates channel gain
         self.mat_bs_loc = mat_bs_loc# Location.bs_location(self)
         self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
-        self.associator = np.zeros([self.USER_NO, self.BS_NO])
+        #self.associator = np.zeros([self.USER_NO, self.BS_NO])
         self.mat_distance = np.zeros([self.BS_NO, self.USER_NO])
-        self.mat_b_connected = np.zeros(self.USER_NO) 
+        #self.mat_b_connected = np.zeros(self.USER_NO) 
         std_dev_angle = 1 # 5  # Standard deviation of angle
 
         for u in range(self.USER_NO):
@@ -204,18 +204,18 @@ class Location:
                 # H_u = rayleigh.rvs(o_d) # calculating user's channel gain using Rayleigh distribution
                 self.H[b, :, u] = H_u
 
-            self.b_connected = self.mat_distance[:, u].argmin() # Heuristic that connects the user to the closest BS
-            #self.b_connected = self.b_connected.astype(int)
-            self.mat_b_connected[u] = self.b_connected
-            self.associator[u, self.b_connected] = 1
+            # self.b_connected = self.mat_distance[:, u].argmin() # Heuristic that connects the user to the closest BS
+            # #self.b_connected = self.b_connected.astype(int)
+            # self.mat_b_connected[u] = self.b_connected
+            # self.associator[u, self.b_connected] = 1
 
             # if self.b_pred_connected != self.b_connected:
             #     self.handover_prediction[u] = True
-
-        return loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected
+        return loc_user, self.H, self.mat_distance
+        #return loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected
     
     
-    def plot_user_movement(self, loc_user, associator, t):
+    def plot_user_movement(self, loc_user, chi, t):
         # Set up figure and axis for plotting
         fig, ax = plt.subplots(figsize=(10, 10))
 
@@ -236,7 +236,7 @@ class Location:
                 ax.plot(loc_user[valid_indices[1:], u, 0], loc_user[valid_indices[1:], u, 1], color=user_color)  # Trajectory line
                 ax.plot(loc_user[valid_indices[-1], u, 0], loc_user[valid_indices[-1], u, 1], marker='x', markersize=8, color=user_color)  # End marker
                 
-                bs_index = np.where(associator[u, :, -2] == 1)[0][0]  # Get the index of the BS assigned to the user
+                bs_index = np.where(chi[u, :, -2] == 1)[0][0]  # Get the index of the BS assigned to the user
                 bs_x, bs_y = self.mat_bs_loc[bs_index]
                 if bs_colors[bs_index] == 'grey':
                     bs_colors[bs_index] = plt.cm.viridis(u / self.USER_NO)  # Change color to user's color if BS is occupied
@@ -356,7 +356,7 @@ class Location:
 # %%
 
 class RateCalculation:
-    def __init__(self, P, rho, H, associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW):
+    def __init__(self, P, rho, H, chi, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW):
         self.BS_NO = BS_NO
         self.PRB_NO = PRB_NO
         self.USER_NO = USER_NO
@@ -371,7 +371,7 @@ class RateCalculation:
         self.signal_strength_dB = np.zeros([self.USER_NO])
         self.interference_dB = np.zeros([self.USER_NO])
         self.noise_plus_interference_dB = np.zeros([self.USER_NO])
-        self.associator = associator
+        self.chi = chi
         # Initialize variables for PRB usage tracking
         self.used_prbs_per_user_per_bs = np.zeros([self.BS_NO, self.USER_NO])
         self.num_prbs_used_per_user = np.zeros([self.USER_NO])
@@ -389,7 +389,7 @@ class RateCalculation:
         for u in range(self.USER_NO):
             num_prbs_of_user_temp = 0 # Track the number of PRBs used by this user in this timestep
             for b in range(self.BS_NO):
-                if self.associator[u, b] == 1:
+                if self.chi[u, b] == 1:
                     for k in range(self.PRB_NO):
                         I_inter = RateCalculation.calculate_interference(self, b, k, u)
                         self.interference_dB[u] = 10 * np.log10(I_inter)

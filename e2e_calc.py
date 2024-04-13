@@ -4,7 +4,8 @@ from radio_calc import Location
 
 class Mapping:
     #def __init__(self, action, FH_BW_CAPACITY, E2_BW_CAPACITY, du_ru_adj_matrix, ric_du_adj_matrix, mat_fh_links_capacity, mat_e2_links_capacity, , mat_specs, associator, USER_NO, BS_NO, DU_NO, PRB_NO, MAX_POWER):
-    def __init__(self, action, mat_specs, associator, USER_NO, BS_NO, PRB_NO, MAX_POWER):
+    def __init__(self, action, mat_specs, USER_NO, BS_NO, PRB_NO, MAX_POWER):
+    # def __init__(self, action, mat_specs, associator, USER_NO, BS_NO, PRB_NO, MAX_POWER):
         self.USER_NO = USER_NO
         self.BS_NO = BS_NO
         #self.DU_NO = DU_NO
@@ -13,6 +14,7 @@ class Mapping:
         #---------
         self.action = action
         # --------------------------------------------------------------------------
+        self.chi = np.zeros([self.USER_NO, self.BS_NO]) # user-bs associator
         self.P = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
         self.rho = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
         #############################################################
@@ -29,14 +31,31 @@ class Mapping:
         # self.temp_mat_fh_links_capacity = np.copy(mat_fh_links_capacity)
         # self.temp_mat_e2_links_capacity = np.copy(mat_e2_links_capacity)
         #############################################################
-        self.associator = associator
 #%% RAN mapping:
+    def user_association(self):
+        self.e0 = 0
+        self.e1 = self.USER_NO * self.BS_NO
+        self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        self.temp_chi = np.clip(self.temp_chi, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+        self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO, self.BS_NO])
+        
+        connected_users = set()  # Keep track of users already connected
+
+        for u in range(self.USER_NO):
+            for b in range(self.BS_NO):
+                # Check if user u is already connected to a base station
+                if u in connected_users:
+                    continue
+                # If a user is not connected to any BS, connect them to the BS with the highest connection probability
+                max_prob_bs = np.argmax(self.temp_chi_reshaped[u, :])
+                self.chi[u, max_prob_bs] = 1
+                connected_users.add(u)  # Mark user u as connected to a base station
+        return self.chi
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
     #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
-        self.e0 = 0
-        self.e1 = self.BS_NO * self.PRB_NO * self.USER_NO
-        self.temp_rho = (self.action[self.e0:self.e1]+1)/2 
+        self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
+        self.temp_rho = (self.action[self.e1:self.e2]+1)/2 
         #self.temp_rho = np.clip(self.temp_rho, 0, 1) 
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.done_user_prb_allocation = 0
@@ -44,19 +63,19 @@ class Mapping:
         # heuristic (B): assigning the PRB to the user with the highest random action value
         for k in range(self.PRB_NO):
             for b in range(self.BS_NO):
-                list_u = np.where(self.associator[:, b] == 1) #[0] #which users are associated with the BS
+                list_u = np.where(self.chi[:, b] == 1) #[0] #which users are associated with the BS
                 self.temp_prb_assoc = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
                 self.temp_prb_assoc[b, k, list_u] = 1 ##possible error
                 self.temp_prb_assoc_prod = self.temp_prb_assoc * self.temp_rho_reshaped
                 if len(list_u) > 0: # Check if there are any associated users
                     if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
                         self.temp_u = np.argmax(self.temp_prb_assoc_prod[b, k, :]) # [0]
-                        if self.associator[self.temp_u, b] == 1:
+                        if self.chi[self.temp_u, b] == 1:
                             self.rho[b, k, self.temp_u] = 1
 
         for b in range(self.BS_NO):
             if np.sum(self.rho[b, :, :]) < self.PRB_NO:
-                list_u = np.where(self.associator[:, b] == 1)[0]
+                list_u = np.where(self.chi[:, b] == 1)[0]
                 # Find the PRBs that are not allocated yet
                 unallocated_prbs = np.where(np.sum(self.rho[b, :, :], axis=1) == 0)[0]
                 # Randomly allocate the unallocated PRBs to the associated users
@@ -142,10 +161,10 @@ class Mapping:
     
 
     def ran_power_allocation(self):
-        self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
+        self.e3 = self.e2 + self.BS_NO * self.PRB_NO * self.USER_NO
         # Now the action is clipped within 0 and 1, no need to normalize it
         # self.temp_p = self.action[self.e1:self.e2]
-        self.temp_p = (self.action[self.e1:self.e2]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
         self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
         self.scale = self.MAX_POWER / self.PRB_NO # checked TNSM code again. they multiply the action by the MAX_POWER. but they don't have PRBs... they have subchannels (10 per BS)
@@ -154,7 +173,7 @@ class Mapping:
         cnt_u = 0
         for u in range(self.USER_NO):
             for b in range(self.BS_NO):
-                if self.associator[u, b] == 1:
+                if self.chi[u, b] == 1:
                     for k in range(self.PRB_NO):
                         if (self.rho[b, k, u]) == 1:
                             if self.remained_power[b] - (self.scale * self.temp_p_reshaped[b, k, u]) > 0:
@@ -172,14 +191,14 @@ class Mapping:
 
 #%%%%
 class Delay:
-    def __init__(self, mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, mat_specs, associator, mat_distance_uu, distances_ric_du, distances_du_ru, du_ru_adj_matrix, ric_du_adj_matrix, USER_NO, BS_NO, DU_NO):
+    def __init__(self, mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, mat_specs, chi, mat_distance_uu, distances_ric_du, distances_du_ru, du_ru_adj_matrix, ric_du_adj_matrix, USER_NO, BS_NO, DU_NO):
         self.USER_NO = USER_NO
         self.BS_NO = BS_NO
         self.DU_NO = DU_NO
         #-------------------
         self.mat_rate = mat_rate
         self.FH_BW_CAPACITY = FH_BW_CAPACITY
-        self.associator = associator
+        self.chi = chi
         self.E2_BW_CAPACITY = E2_BW_CAPACITY
         self.mat_specs = mat_specs
         self.speed_of_light = 3e8 # 300000000 # 3*10^8 m/s (exactly eq5ual to 299,792,458 metres per second)
@@ -202,7 +221,7 @@ class Delay:
             for du in range(self.DU_NO):
                 for b in range(self.BS_NO):
                     if self.du_ru_adj_matrix[du, b] == 1: # instead of \zeta ζ in the paper                       
-                        if self.associator[u, b] == 1:
+                        if self.chi[u, b] == 1:
                             distance_du_ru = self.distances_du_ru[du, b]
                             self.mat_delay_prop_fh[u] = distance_du_ru / self.speed_of_light
                             
@@ -214,7 +233,7 @@ class Delay:
     def prop_uu(self):
         for u in range(self.USER_NO):
             for b in range(self.BS_NO):
-                if self.associator[u, b] == 1: # instead of multiplying \chi
+                if self.chi[u, b] == 1: # instead of multiplying \chi
                    distance = self.mat_distance_uu[b, u]
                    self.mat_delay_prop_uu[u] = distance / self.speed_of_light
         return self.mat_delay_prop_uu
@@ -229,7 +248,7 @@ class Delay:
             for du in range(self.DU_NO):
                 for b in range(self.BS_NO):
                     if self.du_ru_adj_matrix[du, b] == 1: # instead of \zeta ζ in the paper                       
-                        if self.associator[u, b] == 1:
+                        if self.chi[u, b] == 1:
                             if self.mat_rate[u] == 0:
                                 delay_tx_fh = 0
                                 delay_tx_e2 = 0

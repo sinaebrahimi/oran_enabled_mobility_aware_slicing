@@ -88,7 +88,7 @@ class _main_:
         self.mat_ssl_delay = np.zeros([MC, T])
         self.mat_ssl = np.zeros([MC, T])
         self.mat_episode_runtime = np.zeros([MC, T])
-        self.mat_associator = np.zeros([MC, USER_NO, BS_NO, T]) # only get the latest MC
+        self.mat_chi = np.zeros([MC, USER_NO, BS_NO, T]) # only get the latest MC
 
         self.shannon = np.zeros([MC, USER_NO, T])
 
@@ -135,12 +135,14 @@ class _main_:
         # ---------------------------------------------------------
         #self.monte_mat_delay_tot_pred = np.zeros([MC, USER_NO, T])
         # ----------obtaining the number of actions--------------
-        self.e1 = BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
-        self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
-        self.num_actions = self.e2 # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
+        self.e1 = USER_NO * BS_NO # user_association()
+        self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
+        self.e3 = self.e2 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
+        self.num_actions = self.e3 # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
         # ---------------------------------------------------------e
         self.s1 = 2 * USER_NO # np.zeros([T, USER_NO, 2]) ## 2 for x,y of t+1
         self.s2 = USER_NO * BS_NO * PRB_NO # channel gain matrix (b,k,u) of t+1 # self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO]) # defined in radio_calc.py -> user_location()
+        # also add all actions of t-1 as a state (self.num_actions) BU(1+2K)
         # add the occupancy/availability of PRBs to the state: rho[b,k,u] of t (current real state (unpredicted)); (we should know which are not being utilized)
         # add the remaining power capacity of RUs to the state (unpredicted): [b] of t (it should be a vector like [40 22.5 30 40 5.5 30] for 6 RUs)
         # self.s3 = 4 * USER_NO #for slice requirements (but we dont need this as this wouldn't change!)
@@ -182,23 +184,24 @@ class _main_:
                 # -----------------------------------------------                
                 if t == 0:
                     self.loc_user = self.loc_user_init
-                self.loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected = LC.user_location(t, self.loc_user, self.mat_bs_loc)
-                self.mat_associator[m, :, :, t] = self.associator
+                # self.loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected = LC.user_location(t, self.loc_user, self.mat_bs_loc)
+                self.loc_user, self.H, self.mat_distance = LC.user_location(t, self.loc_user, self.mat_bs_loc)
+                #self.mat_associator[m, :, :, t] = self.associator
                 #print(self.loc_user[t,0,:])
                 #print('-')
-                self.mat_b_connected_episodic[m, :, t] = self.mat_b_connected
+                #self.mat_b_connected_episodic[m, :, t] = self.mat_b_connected
 
                 # Find the indices where associator is 1
-                u_indices, b_indices = np.where(self.associator == 1)
-                for u in range(USER_NO):
-                    if t > 0:
-                        if self.mat_b_connected[u] != self.mat_b_connected_episodic[m, u, t-1]:
-                            count_handovers += 1
-                            print(style.BLUE + 'Handover in timestep {} for user {}: from RU {} to RU {}'.format(t, u, self.mat_b_connected_episodic[m, u, t-1], self.mat_b_connected[u]))
+                # u_indices, b_indices = np.where(self.associator == 1)
+                # for u in range(USER_NO):
+                #     if t > 0:
+                #         if self.mat_b_connected[u] != self.mat_b_connected_episodic[m, u, t-1]:
+                #             count_handovers += 1
+                #             print(style.BLUE + 'Handover in timestep {} for user {}: from RU {} to RU {}'.format(t, u, self.mat_b_connected_episodic[m, u, t-1], self.mat_b_connected[u]))
 
                 # Use these indices to directly assign values
-                self.mat_u_bs_dist[m, u_indices, t] = self.mat_distance[b_indices, u_indices]
-                self.mat_gain[m, u_indices, :, t] = self.H[b_indices, :, u_indices]
+                # self.mat_u_bs_dist[m, u_indices, t] = self.mat_distance[b_indices, u_indices]
+                # self.mat_gain[m, u_indices, :, t] = self.H[b_indices, :, u_indices]
 
                 # for u in range(USER_NO):
                 #     for b in range(BS_NO):
@@ -225,7 +228,9 @@ class _main_:
                 self.action = np.clip(self.action, -1, 1) # because of tanh activation function
                 # self.action = np.clip(self.action, 0, 1)
                 # -------Current state calculation---------------------
-                MA = Mapping(self.action, self.mat_specs, self.associator, USER_NO, BS_NO, PRB_NO, MAX_POWER)
+                MA = Mapping(self.action, self.mat_specs, USER_NO, BS_NO, PRB_NO, MAX_POWER)
+                self.chi = MA.user_association()
+                self.mat_chi[m, :, :, t] = self.chi
                 # self.done_user_prb_allocation, self.rho = MA.ran_prb_allocation()
                 self.done_user_prb_allocation, self.rho, prb_cnt_u = MA.ran_prb_allocation() ####GREEDY VERSION ran_prb_allocation_greedy_version
                 self.mat_satisfied_prb_constraint[m, t] = prb_cnt_u / USER_NO # ratio of the users with satisfied PRB allocation
@@ -250,7 +255,7 @@ class _main_:
                         #self.mat_satisfied_power_constraint[m, t] = 1
                         if t== 6000:
                             print('here')
-                        RC = RateCalculation(self.P, self.rho, self.H, self.associator, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
+                        RC = RateCalculation(self.P, self.rho, self.H, self.chi, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
                         self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user = RC._()
                         self.mat_used_prbs_per_user_per_bs[m, :, :, t] = self.used_prbs_per_user_per_bs
                         self.mat_used_prbs_per_user[m, :, t] = self.num_prbs_used_per_user
@@ -266,7 +271,7 @@ class _main_:
                         self.mat_satisfied_rate_constraint[m, t] = cnt_rate_u / USER_NO
                         if self.mat_satisfied_rate_constraint[m, t] > 0: # 0.5: # or any other threshold!
                             #--------------------------------------
-                            D = Delay(self.mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, self.mat_specs, self.associator, 
+                            D = Delay(self.mat_rate, FH_BW_CAPACITY, E2_BW_CAPACITY, self.mat_specs, self.chi, 
                                     self.mat_distance, self.distances_ric_du, self.distances_du_ru, self.du_ru_adj_matrix, self.ric_du_adj_matrix, 
                                     USER_NO, BS_NO, DU_NO)
                             #self.mat_placement, self.W_link, self.mat_links_capacity, self.mat_nodes_and_vms_capacity, self.mat_specs, self.path, self.associator, self.mat_distance, USER_NO, VNF_NO, BS_NO)
@@ -412,7 +417,8 @@ class _main_:
                 # ---------Next state calculation--------------
                 LC_next = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY,
                               X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
-                self.loc_users_new, self.H_new, self.associator, self.mat_distance, self.mat_b_connected = LC_next.user_location(self.tt, self.loc_user, self.mat_bs_loc)
+                # self.loc_users_new, self.H_new, self.associator, self.mat_distance, self.mat_b_connected = LC_next.user_location(self.tt, self.loc_user, self.mat_bs_loc)
+                self.loc_users_new, self.H_new, self.mat_distance = LC_next.user_location(self.tt, self.loc_user, self.mat_bs_loc)
                 # -----------------------------------------------------
                 SC = StateCalculation(self.loc_users_new[self.tt, :], self.H_new, X_LIM) #  shouldn't it be self.loc_users_new[self.tt, :]?
                 self.next_state = SC._()
@@ -451,14 +457,14 @@ class _main_:
                     #plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
             # in m loop
             print(style.CYAN + 'Total Handovers  over all timesteps: MC {}= {} HOs'.format(m, count_handovers))
-            LC.plot_user_movement(self.loc_user, self.mat_associator[m, :, :, :], T-1)
+            LC.plot_user_movement(self.loc_user, self.mat_chi[m, :, :, :], T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
-        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
+        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user
 
 
 # %%
 M = _main_(MC, T)
-mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, du_ru_adj_matrix, LC, mat_associator, loc_user = M._()
+mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user = M._()
 # mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, monte_mat_delay_tot, monte_mat_delay_tot_pred, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix, LC, mat_associator, loc_user = M._()
 
 # %%%%%%%
@@ -466,7 +472,7 @@ mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_
 # save for later (use savez_compressed for compression)
 filename = f'O-RAN SAC (Normal and Proactive), RAYLEIGH={RAYLEIGH_SCALE}, U={USER_NO}, PRB={PRB_NO}, T={T}, VELOCITY={VELOCITY}, OMEGA_1={OMEGA_1}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
 np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shannon=shannon, mat_gain=mat_gain, mat_power=mat_power, mat_reward=mat_reward, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_power_constraint=mat_satisfied_power_constraint,
-                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_associator=mat_associator)
+                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi)
 # np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, mat_u_bs_dist_pred=mat_u_bs_dist_pred, shannon=shannon, shannon_pred=shannon_pred, mat_gain=mat_gain, mat_gain_pred=mat_gain_pred, mat_power=mat_power, mat_power_pred=mat_power_pred, mat_reward=mat_reward, mat_reward_pred=mat_reward_pred, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred=mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint=mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred=mat_satisfied_power_constraint_pred,
 #                     mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, monte_mat_delay_tot=monte_mat_delay_tot, monte_mat_delay_tot_pred=monte_mat_delay_tot_pred, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred=mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred=mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix=du_ru_adj_matrix, mat_associator=mat_associator)
 
