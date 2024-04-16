@@ -483,11 +483,11 @@ window_size = 200  # (for smoothing the curves in the plots)
 LC.visualize_ru_du_locations(du_ru_adj_matrix)
 # %%%%RUNTIME DURATION%%%%%%%
 # Calculate the average episode runtime and its moving average
-mean_mat_episode_runtime = moving_average(1000*np.average(mat_episode_runtime, axis=1), window_size)
+# mean_mat_episode_runtime = moving_average(1000*np.average(mat_episode_runtime, axis=1), window_size)
 
 # Plot the data using your custom plot function
 plot_graph("Runtime Duration",
-           [mean_mat_episode_runtime],
+           [1000*np.average(mat_episode_runtime, axis=1)],
            ['Average runtime duration: {:.2f} ms'.format(1000 * np.average(mat_episode_runtime))],
            ['blue'],
            ['solid'],
@@ -546,13 +546,13 @@ plot_graph("Runtime Duration",
 #            'Overall PRBs used in BS 4')
 #######################
 # Calculate averages over Monte Carlo runs and users
-avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(1,3))
+avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(1,2))
 # avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(0,1))
 # avg_prbs_per_user_pred = np.mean(mat_used_prbs_per_user_pred, axis=(0,1))
 
 # Plot the averages using your function
 plot_graph('Avg PRBs used per user for SAC algorithm',
-           [moving_average(avg_prbs_per_user, window_size)],
+           [avg_prbs_per_user],
            ['SAC'],
            ['b'],
            ['-'],
@@ -590,7 +590,7 @@ normalized_fairness_scores = (avg_fairness_scores - np.min(avg_fairness_scores))
 
 
 plot_graph("Jain's fairness index for PRB allocation",
-           [moving_average(normalized_fairness_scores, window_size)],
+           [normalized_fairness_scores],
            ['SAC'],
            ['blue'],
            ['solid'],
@@ -598,13 +598,13 @@ plot_graph("Jain's fairness index for PRB allocation",
            "Mean fairness score")
 
 # %%REWARD%%%%
-mat_reward_average_over_m = np.average(mat_reward, axis=1) #axis=0
+#mat_reward_average_over_m = np.average(mat_reward, axis=1) #axis=0
 # mat_reward_average_over_m_pred = np.average(mat_reward_pred, axis=0)
 
-mean_ep_rewardall = moving_average(mat_reward_average_over_m, window_size)
+# mean_ep_rewardall = moving_average(mat_reward_average_over_m, window_size)
 # mean_ep_rewardall_pred = moving_average(mat_reward_average_over_m_pred, window_size)
 plot_graph("Mean episodic rewards",
-           [mean_ep_rewardall],
+           [np.average(mat_reward, axis=1)],
            ['SAC'],
            ['blue'],
            ['solid'],
@@ -618,16 +618,19 @@ plot_graph("Mean episodic rewards",
 #            "Episode",
 #            "Mean episodic rewards")
 # %%CONSTRAINT SATISFACTION%
-mean_ep_prb_const = moving_average(np.average(mat_satisfied_prb_constraint, axis=1), window_size)
-# mean_ep_prb_const_pred = moving_average(np.average(mat_satisfied_prb_constraint_pred, axis=0), window_size)
-mean_ep_power_const = moving_average(np.average(mat_satisfied_power_constraint, axis=1), window_size)
-# mean_ep_power_const_pred = moving_average(np.average(mat_satisfied_power_constraint_pred, axis=0), window_size)
-mean_ep_delay_const = moving_average(np.average(mat_satisfied_delay_constraint, axis=1), window_size)
-# mean_ep_delay_const_pred = moving_average(np.average(mat_satisfied_delay_constraint_pred, axis=0), window_size)
-mean_ep_rate_const = moving_average(np.average(mat_satisfied_rate_constraint, axis=1), window_size)
+# mean_ep_prb_const = moving_average(np.average(mat_satisfied_prb_constraint, axis=1), window_size)
+# # mean_ep_prb_const_pred = moving_average(np.average(mat_satisfied_prb_constraint_pred, axis=0), window_size)
+# mean_ep_power_const = moving_average(np.average(mat_satisfied_power_constraint, axis=1), window_size)
+# # mean_ep_power_const_pred = moving_average(np.average(mat_satisfied_power_constraint_pred, axis=0), window_size)
+# mean_ep_delay_const = moving_average(np.average(mat_satisfied_delay_constraint, axis=1), window_size)
+# # mean_ep_delay_const_pred = moving_average(np.average(mat_satisfied_delay_constraint_pred, axis=0), window_size)
+# mean_ep_rate_const = moving_average(np.average(mat_satisfied_rate_constraint, axis=1), window_size)
 
 plot_graph("Constraint Satisfaction",
-           [mean_ep_prb_const, mean_ep_power_const, mean_ep_delay_const],
+           [np.average(mat_satisfied_prb_constraint, axis=1), 
+            np.average(mat_satisfied_power_constraint, axis=1),
+            np.average(mat_satisfied_delay_constraint, axis=1),
+            np.average(mat_satisfied_rate_constraint, axis=1)],
            ['PRB (SAC)',
             'Power (SAC)',
             'Delay (SAC)',
@@ -649,9 +652,9 @@ plot_graph("Constraint Satisfaction",
 #            "Episode",
 #            "Constraint Satisfaction")
 # %%%%%SSL%%%%%%
-mean_ep_ssl_rate = moving_average(np.average(mat_ssl_rate, axis=1), window_size)
-mean_ep_ssl_delay = moving_average(np.average(mat_ssl_delay, axis=1), window_size)
-mean_ep_ssl = moving_average(np.average(mat_ssl, axis=1), window_size)
+# mean_ep_ssl_rate = moving_average(np.average(mat_ssl_rate, axis=1), window_size)
+# mean_ep_ssl_delay = moving_average(np.average(mat_ssl_delay, axis=1), window_size)
+# mean_ep_ssl = moving_average(np.average(mat_ssl, axis=1), window_size)
 # mean_ep_ssl_rate_pred = moving_average(np.average(mat_ssl_rate_pred, axis=0), window_size)
 # mean_ep_ssl_delay_pred = moving_average(np.average(mat_ssl_delay_pred, axis=0), window_size)
 # mean_ep_ssl_pred = moving_average(np.average(mat_ssl_pred, axis=0), window_size)
@@ -668,9 +671,9 @@ mean_ep_ssl = moving_average(np.average(mat_ssl, axis=1), window_size)
 #            "Episode",
 #            "SSL Metrics")
 plot_graph("SSL Metrics",
-           [mean_ep_ssl_rate,
-            mean_ep_ssl_delay,
-            mean_ep_ssl],
+           [np.average(mat_ssl_rate, axis=1),
+            np.average(mat_ssl_delay, axis=1),
+            np.average(mat_ssl, axis=1)],
            ['Rate (SAC)',
             'Delay (SAC)',
             'SSL (SAC)'],
@@ -680,18 +683,18 @@ plot_graph("SSL Metrics",
            "SSL Metrics")
 # %%%%%Delay%%%%%%
 # Calculate mean delay over users for SAC
-mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=2)
+mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=1)
 #mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=0)
 # Calculate mean delay over users for SAC_pred
 # mean_delay_sac_pred = np.mean(np.mean(monte_mat_delay_tot_pred, axis=1), axis=0)
 
 # Apply moving average to smooth the curves
-mean_delay_sac_smoothed = moving_average(mean_delay_sac, window_size)
+# mean_delay_sac_smoothed = moving_average(mean_delay_sac, window_size)
 # mean_delay_sac_pred_smoothed = moving_average(mean_delay_sac_pred, window_size)
 
 # Plot the comparison graph
 plot_graph("Comparison of Average E2E Delay (SAC)",
-           [mean_delay_sac_smoothed],
+           [mean_delay_sac],
            ['SAC'],
            ['blue'],
            ['solid'],
@@ -706,10 +709,10 @@ plot_graph("Comparison of Average E2E Delay (SAC)",
 #            "Average E2E Delay (ms)")
 #####################
 # mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=0)
-mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=2)
-mean_rate_sac_smoothed = moving_average(mean_rate_sac, window_size)
+mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=1)
+# mean_rate_sac_smoothed = moving_average(mean_rate_sac, window_size)
 plot_graph("Average Data Rate (SAC)",
-           [mean_rate_sac_smoothed],
+           [mean_rate_sac],
            ['SAC'],
            ['blue'],
            ['solid'],
@@ -717,10 +720,10 @@ plot_graph("Average Data Rate (SAC)",
            "Average Data Rate (Mbps)")
 
 #####################
-mean_power_sac = np.mean(np.mean(mat_power, axis=1), axis=2)
-mean_power_sac_smoothed = moving_average(mean_power_sac, window_size)
+mean_power_sac = np.mean(np.mean(mat_power, axis=1), axis=1)
+# mean_power_sac_smoothed = moving_average(mean_power_sac, window_size)
 plot_graph("Average of total allocated power to each user (SAC)",
-           [mean_power_sac_smoothed],
+           [mean_power_sac],
            ['SAC'],
            ['blue'],
            ['solid'],
