@@ -1,7 +1,7 @@
 # config.yaml
-USER_NO: 2 #10 #20 # 4
+USER_NO: 5 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
-PRB_NO: 100 #  (to be updated after consulting with Faouzi)
+PRB_NO: 200 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
 ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas # check also 38.913 for mobility scenarios and classes
 X_LIM: 1000
@@ -18,7 +18,7 @@ E2_BW_CAPACITY: 100000 # 5 Gbps in twc23kavehmadani #Mbps (100 Gbps) (link betwe
 SLICE_NO: 1 #5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
 MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
 OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
-VELOCITY: 0 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
+VELOCITY: 10 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
 CONST_D_MAX: 20 #-1 # ms
 CONST_R_MIN: 10 #-1 # Mbps  
 #ISOLATION_ORDER: -1
@@ -26,8 +26,8 @@ PACKET_SIZE: 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23kavehma
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-E: 50 # episodes/epochs for learning (the loop before T loop (replaces MC loop))
-T: 1000 # 14000 # 1000  # Number of timeslots
+E: 1000 # episodes/epochs for learning (the loop before T loop (replaces MC loop))
+T: 200 # 14000 # 1000  # Number of timeslots
 #MC: 3  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
 ALPHA_ACT: 0.00001 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
