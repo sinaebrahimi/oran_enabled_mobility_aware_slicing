@@ -212,12 +212,12 @@ class Location:
             # if self.b_pred_connected != self.b_connected:
             #     self.handover_prediction[u] = True
         return loc_user, self.H, self.mat_distance
-        #return loc_user, self.H, self.associator, self.mat_distance, self.mat_b_connected
+        #return loc_user, self.H,  ==0:self.associator, self.mat_distance, self.mat_b_connected
     
     
     def plot_user_movement(self, loc_user, chi, t):
         # Set up figure and axis for plotting
-        fig, ax = plt.subplots(figsize=(10, 10))
+        fig, ax = plt.subplots(figsize=(5, 5))
 
         # Plot BSs
         bs_colors = ['grey' for _ in range(self.BS_NO)]  # Initialize colors for BSs

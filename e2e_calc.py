@@ -221,6 +221,8 @@ class Delay:
 
         if cnt_u == self.USER_NO:
             done_delay_all = 1
+        else:
+            print('meow')
 
         self.mat_delay_tot = self.mat_delay_tot * 1000   #  To convert to ms
         return cnt_u, done_delay_all, self.mat_delay_tot, is_fh_capacity_full, is_e2_capacity_full
