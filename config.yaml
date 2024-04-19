@@ -1,7 +1,7 @@
 # config.yaml
-USER_NO: 5 #10 #20 # 4
+USER_NO: 4 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
-PRB_NO: 200 #  (to be updated after consulting with Faouzi)
+PRB_NO: 40 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
 ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas # check also 38.913 for mobility scenarios and classes
 X_LIM: 1000
@@ -26,8 +26,8 @@ PACKET_SIZE: 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23kavehma
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-E: 1000 # episodes/epochs for learning (the loop before T loop (replaces MC loop))
-T: 200 # 14000 # 1000  # Number of timeslots
+E: 400 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
+T: 50 #100# 14000 # 1000  # Number of timeslots
 #MC: 3  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
 ALPHA_ACT: 0.00001 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
