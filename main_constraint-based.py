@@ -77,6 +77,7 @@ class _main_:
         # -----------------------------------------------
         # self.mat_reward = np.zeros([T])
         self.mat_reward = np.zeros([E, T]) # -100 * np.ones([MC, T])
+        self.mat_reward_user = np.zeros([E, USER_NO, T]) 
         self.mat_satisfied_prb_constraint = np.zeros([E, T])
         self.mat_satisfied_power_constraint = np.zeros([E, T])
         self.mat_satisfied_rate_constraint = np.zeros([E, T])
@@ -187,6 +188,7 @@ class _main_:
                 self.tt = t + 1
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
                 self.reward = 0 # -100
+                self.mat_reward_user[e, :, t] = 0
                 # -----------------------------------------------                
                 if t == 0:
                     self.loc_user = self.loc_user_init
@@ -247,14 +249,38 @@ class _main_:
                 self.chi_compressed, self.chi_num, self.chi = MA.user_association()
                 self.mat_chi_compressed[e, :, t] = self.chi_compressed # between 0 and 1
                 self.mat_chi[e, :, :, t] = self.chi # binary variable for b, u
+                # punish the reward of users who did not choose the nearest BS (compare with avg H on k)
+                for b in range(BS_NO):
+                    # check if any user is connected to the base station
+                    connected_users = [u for u in range(USER_NO) if self.chi[u, b] == 1]
+                    # if no user is connected, skip to next base station
+                    if not connected_users:
+                        continue
+                    # calculate the average channel gain for this base station
+                    avg_channel_gain = np.average([self.H[b, :, u] for u in connected_users])
+                    
+                    for u in connected_users:
+                        # Find the base station with the maximum average channel gain
+                        max_channel_gain_bs = np.argmax([np.average(self.H[bb, :, u]) for bb in range(BS_NO)]) #np.argmax([np.average(self.H[b, :, u]) for b in range(BS_NO)])
+                        # If the user is not connected to the base station with the maximum average channel gain, punish the user
+                        if b != max_channel_gain_bs:
+                            # The punishment is proportional to the difference in channel gain, normalized by the maximum possible channel gain
+                            self.mat_reward_user[e, u, t] -= abs(avg_channel_gain - self.H[max_channel_gain_bs, :, u].mean()) / self.H.max()
+                self.reward += np.sum(self.mat_reward_user[e, :, t]) # some negative value
+                # Normalize total reward so it does not exceed -1
+                # reward = max(reward, -1)
                 # rho
                 self.rho_compressed, self.rho_num, self.rho, self.unallocated_PRBs = MA.ran_prb_allocation() 
                 self.mat_rho_compressed[e, :, t] = self.rho_compressed
                 self.mat_rho[e,:,:,:,t] = self.rho
 
+                for u in range(USER_NO):
+                    self.mat_reward_user[e, u, t] -= self.unallocated_PRBs[u] / PRB_NO
+                    self.reward -= self.unallocated_PRBs[u] / PRB_NO
+
                 total_unallocated_PRBs = np.sum(self.unallocated_PRBs)
-                if total_unallocated_PRBs > 0:
-                    self.reward -= total_unallocated_PRBs / (USER_NO * PRB_NO)
+                # if total_unallocated_PRBs > 0:
+                #     self.reward -= total_unallocated_PRBs / (USER_NO * PRB_NO)
 
                 # Initialize PRB_utilization with zeros
                 PRB_utilization = np.zeros([BS_NO])
@@ -262,6 +288,33 @@ class _main_:
                 for b in range(BS_NO):
                     PRB_utilization[b] = np.sum(self.rho[b, :, :]) / PRB_NO
                 #maybe also give negative reward if avg utilization is low
+
+                # Iterate over all base stations
+                for b in range(BS_NO):
+                    # Check if any user is connected to the base station
+                    connected_users = [u for u in range(USER_NO) if self.chi[u, b] == 1]
+                    
+                    # If no user is connected, skip to next base station
+                    if not connected_users:
+                        continue
+
+                    # Calculate the average number of PRBs per user for this base station
+                    avg_prbs_per_user = PRB_NO / len(connected_users)
+
+                    # Iterate over all connected users
+                    for u in connected_users:
+                        # Calculate the number of PRBs used by this user
+                        prbs_used = sum(self.rho[b, k, u] for k in range(PRB_NO))
+
+                        # Calculate the difference between the number of PRBs used by this user and the average
+                        prb_diff = abs(prbs_used - avg_prbs_per_user)
+
+                        # Punish the user based on the difference, normalized by PRB_NO
+                        self.mat_reward_user[e,u,t] -= prb_diff / PRB_NO
+
+                    # Add up all user rewards to get the total reward
+                    self.reward += np.sum(self.mat_reward_user[e,:,t]) # some negative value
+
                 self.mat_prb_util_per_bs[e, :, t] = PRB_utilization
                 for u in range(USER_NO):
                     for b in range(BS_NO):
@@ -301,16 +354,14 @@ class _main_:
                 cnt_u, done_delay_all,  self.mat_delay_tot, is_fh_capacity_full, is_e2_capacity_full = D._()
                 self.monte_mat_delay_tot[e, :, t] = self.mat_delay_tot                        
                 self.mat_satisfied_delay_constraint[e,t] = cnt_u / USER_NO
-                if self.mat_satisfied_delay_constraint[e,t] < 0.5:
-                    print(style.RED + 'Unsatisfied delay constraint in timestep {} of episode {}'.format(t, e))
+                # if self.mat_satisfied_delay_constraint[e,t] < 0.5:
+                #     print(style.RED + 'Unsatisfied delay constraint in timestep {} of episode {}'.format(t, e))
                 if np.sum(is_fh_capacity_full) > 0:
                     self.reward -= np.sum(is_fh_capacity_full) / (DU_NO * BS_NO)
                 if np.sum(is_e2_capacity_full) > 0:
                     self.reward -= np.sum(is_e2_capacity_full) / DU_NO
-                # Maybe another punishment for delay constraint violation
-                #  -------------------------------------
 
-                ##Reward with number of connected devices!
+                ##Reward with number of connected devices! (ANOTHER IDEA)
                 self.sigma_SSL_R = 0
                 for s in range(SLICE_NO):
                     for u in range(USER_NO):
@@ -318,6 +369,9 @@ class _main_:
                             # min_rate specification
                             self.R_s = self.mat_specs[u, 1]
                             self.mat_ssl_u_rate[e, u, t] = (self.mat_rate[u] / self.R_s)
+                            if self.mat_rate[u] < self.R_s:
+                                self.mat_reward_user[e, u, t] -= (self.R_s - self.mat_rate[u]) / self.R_s
+                                self.reward -= (self.R_s - self.mat_rate[u]) / (self.R_s * USER_NO)
                             self.sigma_SSL_R += self.mat_ssl_u_rate[e, u, t]
 
                 self.SSL_R = self.sigma_SSL_R / (1 + self.sigma_SSL_R)
@@ -330,6 +384,9 @@ class _main_:
                             # max_tolerable_delay specification
                             self.D_s = self.mat_specs[u, 2]
                             self.mat_ssl_u_delay[e, u, t] = (self.D_s / self.mat_delay_tot[u])
+                            if self.D_s < self.mat_delay_tot[u]:
+                                self.mat_reward_user[e, u, t] -= (self.mat_delay_tot[u]- self.D_s) / self.D_s
+                                self.reward -= (self.mat_delay_tot[u]- self.D_s) / (self.D_s * USER_NO)
                             self.sigma_SSL_D += self.mat_ssl_u_delay[e, u, t]
 
                 self.SSL_D = self.sigma_SSL_D / (1 + self.sigma_SSL_D)
