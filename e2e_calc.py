@@ -188,16 +188,22 @@ class Delay:
         return self.mat_delay_tx_fh, self.mat_delay_tx_e2, is_fh_capacity_full, is_e2_capacity_full
     
     def tx_uu(self):
+        flag_uu_failure_due_to_rate = np.zeros([self.USER_NO])
         for u in range(self.USER_NO):
             PACKET_SIZE = self.mat_specs[u, 3] # in mbits
             #PACKET_NO = self.mat_specs[u, 4] # number of packetsper each second
             if self.mat_rate[u] == 0:
                 delay_tx_uu = 0
+                flag_uu_failure_due_to_rate[u] = 1
             else:
-                delay_tx_uu = (PACKET_SIZE) / self.mat_rate[u]
+                if self.mat_rate[u] < PACKET_SIZE:
+                    delay_tx_uu = 0
+                    flag_uu_failure_due_to_rate[u] = 1
+                else:
+                    delay_tx_uu = (PACKET_SIZE) / self.mat_rate[u]
                 # delay_tx_uu = (PACKET_SIZE * PACKET_NO) / self.mat_rate[u]
             self.mat_delay_tx_uu[u] = delay_tx_uu
-        return self.mat_delay_tx_uu
+        return self.mat_delay_tx_uu, flag_uu_failure_due_to_rate
 
 
     def _(self):
@@ -205,7 +211,7 @@ class Delay:
         self.mat_delay_tot *= 0.00001 # 10 us (0.01 ms)
         done_delay_all = 0
         cnt_u = 0
-        self.mat_delay_tx_uu = Delay.tx_uu(self)
+        self.mat_delay_tx_uu, flag_uu_failure_due_to_rate = Delay.tx_uu(self)
         self.mat_delay_tx_fh, self.mat_delay_tx_e2, is_fh_capacity_full, is_e2_capacity_full = Delay.tx_fh_e2(self)
         self.mat_delay_prop_fh, self.mat_delay_prop_e2 = Delay.prop_fh_e2(self)
         self.mat_delay_prop_uu = Delay.prop_uu(self)
@@ -223,7 +229,7 @@ class Delay:
             done_delay_all = 1
 
         self.mat_delay_tot = self.mat_delay_tot * 1000   #  To convert to ms
-        return cnt_u, done_delay_all, self.mat_delay_tot, is_fh_capacity_full, is_e2_capacity_full
+        return cnt_u, done_delay_all, self.mat_delay_tot, is_fh_capacity_full, is_e2_capacity_full, flag_uu_failure_due_to_rate
 
 # %%
 class StateCalculation: # TO BE COMPLETED
