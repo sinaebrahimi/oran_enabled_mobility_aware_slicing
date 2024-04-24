@@ -59,7 +59,7 @@ class Mapping:
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
 
         self.rho_num = np.floor(self.temp_rho_reshaped * self.PRB_NO)
-        self.rho_num = np.clip(self.rho_num, 1, self.PRB_NO).astype(int)
+        self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO).astype(int)
         #self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO -1).astype(int)
 
         unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
