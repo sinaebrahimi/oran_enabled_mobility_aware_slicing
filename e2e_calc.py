@@ -64,18 +64,17 @@ class Mapping:
 
         unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
 
+        for k in range(self.PRB_NO):
+            for b in range(self.BS_NO):
+                for u in range(self.USER_NO):
+                    if self.chi[u, b] == 1:
+                        if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
+                            if np.sum(self.rho[b, k, :]) != 1:
+                                self.rho[b, k, u] = 1
 
-        for b in range(self.BS_NO):
-            k = 0  # index for PRBs
-            for u in range(self.USER_NO):
-                if self.chi[u, b] == 1:  # if user u is connected to base station b
-                    for _ in range(self.rho_num[u]):
-                        if k < self.PRB_NO:
-                            self.rho[b, k, u] = 1
-                            k += 1
-                        else:
-                            unallocated_PRBs[u] += 1
-
+        for u in range(self.USER_NO):
+            if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
+                unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
         
         return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs
     
