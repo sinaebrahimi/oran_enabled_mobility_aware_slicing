@@ -251,7 +251,7 @@ class _main_:
                 # self.action = np.clip(self.action, 0, 1)
                 # -------Current state calculation---------------------
                 #self.chi_compressed = np.zeros([USER_NO])
-                MA = Mapping(self.action, self.mat_specs, USER_NO, BS_NO, PRB_NO, MAX_POWER)
+                MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 #chi
                 self.chi_compressed, self.chi_num, self.chi = MA.user_association()
                 self.mat_chi_compressed[e, :, t] = self.chi_compressed # between 0 and 1

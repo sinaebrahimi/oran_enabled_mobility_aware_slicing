@@ -4,7 +4,7 @@ from radio_calc import Location
 
 class Mapping:
     #def __init__(self, action, FH_BW_CAPACITY, E2_BW_CAPACITY, du_ru_adj_matrix, ric_du_adj_matrix, mat_fh_links_capacity, mat_e2_links_capacity, , mat_specs, associator, USER_NO, BS_NO, DU_NO, PRB_NO, MAX_POWER):
-    def __init__(self, action, mat_specs, USER_NO, BS_NO, PRB_NO, MAX_POWER):
+    def __init__(self, action, mat_specs, H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER):
     # def __init__(self, action, mat_specs, associator, USER_NO, BS_NO, PRB_NO, MAX_POWER):
         self.USER_NO = USER_NO
         self.BS_NO = BS_NO
@@ -13,7 +13,9 @@ class Mapping:
         self.MAX_POWER = MAX_POWER
         #---------
         self.action = action
-        # --------------------------------------------------------------------------
+        # --------------------
+        self.H_b = H_b
+        # ------------------------------------------------------
         self.chi = np.zeros([self.USER_NO, self.BS_NO]) # user-bs associator
         self.chi_num = np.zeros([self.USER_NO])
         self.p = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
@@ -42,12 +44,24 @@ class Mapping:
         self.temp_chi = np.clip(self.temp_chi, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
 
-        self.chi_num = np.floor(self.temp_chi_reshaped * self.BS_NO)
-        self.chi_num = np.clip(self.chi_num, 0, self.BS_NO - 1).astype(int)
+        # Reshape to ensure it's a column vector if it's not already
+        self.temp_chi_reshaped = self.temp_chi_reshaped.reshape(self.USER_NO, 1)
 
-        for u in range(self.USER_NO):
-            b = self.chi_num[u]
-            self.chi[u, b] = 1
+        # Combine normalized action values with channel gains
+        # Broadcasting temp_chi_reshaped across all BS
+        weighted_preferences = self.temp_chi_reshaped * self.H_b.T
+
+        # Choose the BS with the highest weighted preference for each user
+        self.chi_num = np.argmax(weighted_preferences, axis=1)
+
+        self.chi[np.arange(self.USER_NO), self.chi_num] = 1
+
+        # self.chi_num = np.floor(self.temp_chi_reshaped * self.BS_NO)
+        # self.chi_num = np.clip(self.chi_num, 0, self.BS_NO - 1).astype(int)
+
+        # for u in range(self.USER_NO):
+        #     b = self.chi_num[u]
+        #     self.chi[u, b] = 1
         
         return self.temp_chi_reshaped, self.chi_num, self.chi
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
