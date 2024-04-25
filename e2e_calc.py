@@ -41,15 +41,16 @@ class Mapping:
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
         self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
-        self.temp_chi = np.clip(self.temp_chi, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+        # self.temp_chi = np.clip(self.temp_chi, 0, 1)
+        self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
 
         # Reshape to ensure it's a column vector if it's not already
-        self.temp_chi_reshaped = self.temp_chi_reshaped.reshape(self.USER_NO, 1)
+        temp_chi_vector = self.temp_chi_reshaped.reshape(self.USER_NO, 1)
 
         # Combine normalized action values with channel gains
         # Broadcasting temp_chi_reshaped across all BS
-        weighted_preferences = self.temp_chi_reshaped * self.H_b.T
+        weighted_preferences = temp_chi_vector * self.H_b.T
 
         # Choose the BS with the highest weighted preference for each user
         self.chi_num = np.argmax(weighted_preferences, axis=1)
