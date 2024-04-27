@@ -15,7 +15,7 @@ from sac_torch import Agent
 np.random.seed(1371) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
 config_file = 'config.yaml'
@@ -59,6 +59,7 @@ ALPHA_ACT = config['ALPHA_ACT']
 BETA_ACT = config['BETA_ACT']
 VAR = config['VAR']
 DECAY_VAR = config['DECAY_VAR']
+GAMMA = config['GAMMA']
 # ----------------------------------------
 # %
 # %% main class
@@ -236,9 +237,17 @@ class _main_:
                 if t==0:
                     SC = StateCalculation(self.H_b, np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]))
                     self.state = SC._()
+                elif t==1: 
+                    SC = StateCalculation(self.H_b, self.mat_ssl_u_rate[e, :, t-1], self.mat_ssl_u_delay[e, :, t-1], 
+                                          self.mat_chi_compressed[e, :, t-1], self.mat_rho_compressed[e, :, t-1], self.mat_p_compressed[e, :, t-1])
+                    self.state = SC._()
                 else:   
                     # to add H(t+1) from LSTM prediction
-                    SC = StateCalculation(self.H_b, self.mat_ssl_u_rate[e, :, t-1], self.mat_ssl_u_delay[e, :, t-1], self.mat_chi_compressed[e, :, t-1], self.mat_rho_compressed[e, :, t-1], self.mat_p_compressed[e, :, t-1])
+                    # alpha * self.mat_chi_compressed[e, :, t-1] + (1-alpha) * self.mat_chi_compressed_pred[e, :, t-2]
+                    SC = StateCalculation(self.H_b, self.mat_ssl_u_rate[e, :, t-1], self.mat_ssl_u_delay[e, :, t-1], 
+                                          GAMMA * self.mat_chi_compressed[e, :, t-1] + (1- GAMMA) * self.mat_chi_compressed[e, :, t-2], 
+                                          GAMMA * self.mat_rho_compressed[e, :, t-1] + (1- GAMMA) * self.mat_rho_compressed[e, :, t-2],
+                                          GAMMA * self.mat_p_compressed[e, :, t-1] + (1- GAMMA) * self.mat_p_compressed[e, :, t-2])
                     self.state = SC._()
                 self.mat_delay_tot = np.ones([USER_NO])
                 #self.mat_delay_tot_pred = np.ones([USER_NO])
@@ -327,8 +336,8 @@ class _main_:
                 self.mat_rho_compressed[e, :, t] = self.rho_compressed
                 self.mat_rho[e,:,:,:,t] = self.rho
 
-                for u in range(USER_NO):
-                    self.mat_reward_user[e, u, t] -= self.unallocated_PRBs[u] / PRB_NO
+                # for u in range(USER_NO):
+                #     self.mat_reward_user[e, u, t] -= self.unallocated_PRBs[u] / PRB_NO
                     #self.reward -= self.unallocated_PRBs[u] / PRB_NO
 
                 total_unallocated_PRBs = np.sum(self.unallocated_PRBs)
@@ -404,9 +413,9 @@ class _main_:
                 if np.sum(is_e2_capacity_full) > 0:
                     self.reward -= np.sum(is_e2_capacity_full) / DU_NO
 
-                for u in range(USER_NO):
-                    if flag_uu_failure_due_to_rate[u] == 1:
-                        self.mat_reward_user[e, u, t] -= 1 # punish those users who had bad delay (although we fade the uu tx delay in measurements )
+                # for u in range(USER_NO):
+                #     if flag_uu_failure_due_to_rate[u] == 1:
+                #         self.mat_reward_user[e, u, t] -= 1 # punish those users who had bad delay (although we fade the uu tx delay in measurements )
             
                 #self.reward += np.average(self.mat_reward_user[e, :, t])
                 ##Reward with number of connected devices! (ANOTHER IDEA)
@@ -421,6 +430,8 @@ class _main_:
                             temp_rate_satisfaction_ratio = (self.mat_rate[u] / self.R_s)**10 # to widen the gap between satisfied and unsatisfied users
                             self.mat_fittingness_u_rate[e, u, t] = (temp_rate_satisfaction_ratio) / (1 + temp_rate_satisfaction_ratio) # sigmoid function
                             cnt_rate_u += (self.mat_rate[u] >= self.R_s)
+                            if self.mat_fittingness_u_rate[e, u, t] < 0.5 :# self.mat_rate[u] < self.R_s:
+                                self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_rate[e, u, t]) 
                 
                 self.mat_satisfied_rate_constraint[e, t] = cnt_rate_u / USER_NO
                 self.mat_ssl_rate[e, t] = np.average(self.mat_fittingness_u_rate[e, :, t]) 
@@ -441,7 +452,13 @@ class _main_:
                             temp_delay_satisfaction_ratio = (self.D_s / self.mat_delay_tot[u])**10 # to widen the gap between satisfied and unsatisfied users
                             self.mat_fittingness_u_delay[e, u, t] = (temp_delay_satisfaction_ratio) / (1 + temp_delay_satisfaction_ratio) # sigmoid function
                             cnt_delay_u += (self.mat_delay_tot[u] <= self.D_s)
+                            if self.mat_fittingness_u_delay[e, u, t] < 0.5 :
+                                self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_delay[e, u, t])
                 
+                for u in range(USER_NO):
+                    if self.mat_reward_user[e, u, t] < 0:
+                        self.reward += 100 * self.mat_reward_user[e, u, t] / USER_NO
+
                 self.mat_satisfied_delay_constraint[e, t] = cnt_delay_u / USER_NO
                 self.mat_ssl_delay[e, t] = np.average(self.mat_fittingness_u_delay[e, :, t])
 
