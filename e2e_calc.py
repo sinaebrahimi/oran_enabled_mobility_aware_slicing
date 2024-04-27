@@ -57,39 +57,96 @@ class Mapping:
 
         self.chi[np.arange(self.USER_NO), self.chi_num] = 1
 
-        # self.chi_num = np.floor(self.temp_chi_reshaped * self.BS_NO)
-        # self.chi_num = np.clip(self.chi_num, 0, self.BS_NO - 1).astype(int)
 
-        # for u in range(self.USER_NO):
-        #     b = self.chi_num[u]
-        #     self.chi[u, b] = 1
+        # Count users per base station and check for overloading
+        user_counts = np.sum(self.chi, axis=0)
+        max_allowed_users_per_bs = np.ceil(self.USER_NO / self.BS_NO)
         
+        # Reallocate users from overloaded BS
+        for b in range(self.BS_NO):
+            if user_counts[b] > max_allowed_users_per_bs:
+                # Find users currently assigned to this overloaded BS
+                overloaded_users = np.where(self.chi[:, b] == 1)[0]
+                # Sort these users based on their channel gains to b, ascending order
+                overloaded_users = overloaded_users[np.argsort(self.H_b[b, overloaded_users])]
+                for u in overloaded_users:
+                    if user_counts[b] <= max_allowed_users_per_bs:
+                        break
+                    # Attempt to reallocate to next highest preference not overloaded
+                    other_bs_preferences = weighted_preferences[u, :]
+                    # Set current overloaded BS preference to very low to avoid reselection
+                    other_bs_preferences[b] = -np.inf
+                    new_bs = np.argmax(other_bs_preferences) # choosing the second best BS for the user
+                    if user_counts[new_bs] < max_allowed_users_per_bs:
+                        # Reassign user u from b to new_bs
+                        self.chi[u, b] = 0
+                        self.chi[u, new_bs] = 1
+                        user_counts[b] -= 1
+                        user_counts[new_bs] += 1
+        
+        # Update self.chi_num to reflect the final user-BS associations
+        self.chi_num = np.argmax(self.chi, axis=1)
+
         return self.temp_chi_reshaped, self.chi_num, self.chi
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
     #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e2 = self.e1 + self.USER_NO
         self.temp_rho = (self.action[self.e1:self.e2]+1)/2 
-        #self.temp_rho = np.clip(self.temp_rho, 0, 1) 
-        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
+        # Scale normalized actions by the rate requirements from mat_specs
+        normalized_rate_requirements = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1])
+        rate_scaled_rho = self.temp_rho * normalized_rate_requirements# scale it with the rate requirements
+        self.temp_rho_reshaped = np.reshape(rate_scaled_rho, [self.USER_NO])
+
+        # Calculate minimum PRBs required based on some rate to PRB mapping logic
+        min_prbs_per_user = np.ceil(self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1]) * self.PRB_NO / self.USER_NO).astype(int)
+        min_prbs_per_user = np.clip(min_prbs_per_user, 1, self.PRB_NO)  # Ensure at least 1 PRB, adjust logic as needed
+
 
         self.rho_num = np.floor(self.temp_rho_reshaped * self.PRB_NO)
+        # Ensure minimum PRBs are allocated if the initial calculation is too low
+        self.rho_num = np.maximum(self.rho_num, min_prbs_per_user)
         self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO).astype(int)
         #self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO -1).astype(int)
 
         unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
 
-        for k in range(self.PRB_NO):
-            for b in range(self.BS_NO):
-                for u in range(self.USER_NO):
-                    if self.chi[u, b] == 1:
-                        if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
-                            if np.sum(self.rho[b, k, :]) != 1:
-                                self.rho[b, k, u] = 1
+        # First Phase: Allocate minimum PRBs to each user
+        for u in range(self.USER_NO):
+            allocated_prbs = 0
+            for k in range(self.PRB_NO):
+                for b in range(self.BS_NO):
+                    if self.chi[u, b] == 1 and allocated_prbs < min_prbs_per_user[u]:
+                        if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is free
+                            self.rho[b, k, u] = 1
+                            allocated_prbs += 1
 
+        # Second Phase: Allocate remaining PRBs to users
+        for u in range(self.USER_NO):
+            additional_prbs_needed = self.rho_num[u] - np.sum(self.rho[:, :, u])
+            for k in range(self.PRB_NO):
+                for b in range(self.BS_NO):
+                    if self.chi[u, b] == 1 and additional_prbs_needed > 0:
+                        if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is still free
+                            self.rho[b, k, u] = 1
+                            additional_prbs_needed -= 1
+
+        # Check final allocations
         for u in range(self.USER_NO):
             if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
                 unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
+
+        # for k in range(self.PRB_NO):
+        #     for b in range(self.BS_NO):
+        #         for u in range(self.USER_NO):
+        #             if self.chi[u, b] == 1:
+        #                 if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
+        #                     if np.sum(self.rho[b, k, :]) != 1:
+        #                         self.rho[b, k, u] = 1
+
+        # for u in range(self.USER_NO):
+        #     if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
+        #         unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
         
         return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs
     
@@ -97,9 +154,16 @@ class Mapping:
     def ran_power_allocation(self):
         self.e3 = self.e2 + self.USER_NO
         self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
-        self.temp_p = np.clip(self.temp_p, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+        self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.USER_NO])
         self.scale = self.MAX_POWER / self.PRB_NO # This ensures that we'll never exceed MAX_POWER in sum_p
+
+        # Calculate minimum PRBs required based on some rate to PRB mapping logic
+        min_power_per_user = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1]) * self.PRB_NO / self.USER_NO
+
+
+        self.p_num = np.maximum(self.p_num, min_power_per_user) # Ensure minimum power is allocated
+        self.p_num = np.clip(self.p_num, 0, self.MAX_POWER) # Ensure maximum power is not exceeded
 
         for u in range(self.USER_NO):
             self.p_num[u] = self.scale * self.temp_p_reshaped[u]

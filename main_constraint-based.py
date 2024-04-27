@@ -12,7 +12,7 @@ from initialization import Specifications
 from radio_calc import Location, RateCalculation
 from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
-np.random.seed(1372) # some random number
+np.random.seed(1371) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -87,7 +87,9 @@ class _main_:
         self.max_rate = np.zeros([E, T])
         self.max_inversed_delay = np.zeros([E, T]) 
         self.mat_ssl_u_rate = np.zeros([E, USER_NO, T])
-        self.mat_ssl_u_delay = np.zeros([E, USER_NO, T])
+        self.mat_ssl_u_delay = np.zeros([E, USER_NO, T])        
+        self.mat_fittingness_u_rate = np.zeros([E, USER_NO, T])
+        self.mat_fittingness_u_delay = np.zeros([E, USER_NO, T])
         self.mat_ssl_user = np.zeros([E, USER_NO, T])
         self.mat_ssl_rate = np.zeros([E, T])
         self.mat_ssl_delay = np.zeros([E, T])
@@ -110,6 +112,7 @@ class _main_:
         self.mat_chi_compressed = np.zeros((E, USER_NO, T))
         self.mat_rho_compressed = np.zeros((E, USER_NO, T))
         self.mat_p_compressed = np.zeros((E, USER_NO, T))
+        self.mat_count_handovers = np.zeros((E, USER_NO))
 
         # # Initialize matrices for SAC_pred
         # self.mat_used_prbs_per_user_per_bs_pred = np.zeros((MC, BS_NO, USER_NO, T))
@@ -253,27 +256,69 @@ class _main_:
                 #self.chi_compressed = np.zeros([USER_NO])
                 MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 #chi
-                self.chi_compressed, self.chi_num, self.chi = MA.user_association()
+                self.chi_compressed, self.chi_num, self.chi = MA.user_association() # it is turned to a heuristic!
                 self.mat_chi_compressed[e, :, t] = self.chi_compressed # between 0 and 1
                 self.mat_chi[e, :, :, t] = self.chi # binary variable for b, u
+
+                self.mat_b_connected_episodic[e, :, t] = self.chi_num
+
+                for u in range(USER_NO):
+                    if t > 0:
+                        if self.chi_num[u] != self.mat_b_connected_episodic[e, u, t-1]:
+                            count_handovers += 1
+                            self.mat_count_handovers[e, u] += 1
+                            # print(style.BLUE + 'Handover in timestep {} for user {}: from RU {} to RU {}'.format
+                            #       (t, u, self.mat_b_connected_episodic[e, u, t-1], self.chi_num[u]))
                 # punish the reward of users who did not choose the nearest BS (compare with avg H on k)
-                for b in range(BS_NO):
-                    # check if any user is connected to the base station
-                    connected_users = [u for u in range(USER_NO) if self.chi[u, b] == 1]
-                    # if no user is connected, skip to next base station
-                    if not connected_users:
-                        continue
+                # for b in range(BS_NO):
+                #     # check if any user is connected to the base station
+                #     connected_users = [u for u in range(USER_NO) if self.chi[u, b] == 1]
+                #     # if no user is connected, skip to next base station
+                #     if not connected_users:
+                #         continue
                     
-                    for u in connected_users:
-                        # Find the base station with the maximum average channel gain
-                        max_channel_gain_bs = np.argmax([self.H_b[bb, u] for bb in range(BS_NO)])
-                        # np.argmax([np.average(self.H[bb, :, u]) for bb in range(BS_NO)]) #np.argmax([np.average(self.H[b, :, u]) for b in range(BS_NO)])
-                        # If the user is not connected to the base station with the maximum average channel gain, punish the user
-                        if b != max_channel_gain_bs:
-                            # The punishment is proportional to the difference in channel gain, normalized by the maximum possible channel gain
-                            self.mat_reward_user[e, u, t] -= abs(self.H_b[b, u] - self.H_b[max_channel_gain_bs, u]) / np.max(self.H)
-                        # else:
-                        #     self.mat_reward_user[e, u, t] += 1
+                #     for u in connected_users:
+                #         # Find the base station with the maximum average channel gain
+                #         max_channel_gain_bor b in range(BS_NO):
+                #     # check if any user is connected to the base station
+                #     connected_users = [u for u in range(USER_NO) if self.chi[u, b] == 1]
+                #     # if no user is connecor b in range(BS_NO):
+                #     # check if any user is connected to the base station
+                #     connected_users = [u for u in range(USER_NO) if self.chi[u, b] == 1]
+                #     # if no user is connected, skip to next base station
+                #     if not connected_users:
+                #         continue
+                    
+                #     for u in connected_users:
+                #         # Find the base station with the maximum average channel gain
+                #         max_channel_gain_bs = np.argmax([self.H_b[bb, u] for bb in range(BS_NO)])
+                #         # np.argmax([np.average(self.H[bb, :, u]) for bb in range(BS_NO)]) #np.argmax([np.average(self.H[b, :, u]) for b in range(BS_NO)])
+                #         # If the user is not connected to the base station with the maximum average channel gain, punish the user
+                #         if b != max_channel_gain_bs:
+                #             # The punishment is proportional to the difference in channel gain, normalized by the maximum possible channel gain
+                #             self.mat_reward_user[e, u, t] -= abs(self.H_b[b, u] - self.H_b[max_channel_gain_bs, u]) / np.max(self.H)
+                #         # else:
+                #         #     self.mat_reward_user[e, u, t] += 1ted, skip to next base station
+                #     if not connected_users:
+                #         continue
+                    
+                #     for u in connected_users:
+                #         # Find the base station with the maximum average channel gain
+                #         max_channel_gain_bs = np.argmax([self.H_b[bb, u] for bb in range(BS_NO)])
+                #         # np.argmax([np.average(self.H[bb, :, u]) for bb in range(BS_NO)]) #np.argmax([np.average(self.H[b, :, u]) for b in range(BS_NO)])
+                #         # If the user is not connected to the base station with the maximum average channel gain, punish the user
+                #         if b != max_channel_gain_bs:
+                #             # The punishment is proportional to the difference in channel gain, normalized by the maximum possible channel gain
+                #             self.mat_reward_user[e, u, t] -= abs(self.H_b[b, u] - self.H_b[max_channel_gain_bs, u]) / np.max(self.H)
+                #         # else:
+                #         #     self.mat_reward_user[e, u, t] += 1s = np.argmax([self.H_b[bb, u] for bb in range(BS_NO)])
+                #         # np.argmax([np.average(self.H[bb, :, u]) for bb in range(BS_NO)]) #np.argmax([np.average(self.H[b, :, u]) for b in range(BS_NO)])
+                #         # If the user is not connected to the base station with the maximum average channel gain, punish the user
+                #         if b != max_channel_gain_bs:
+                #             # The punishment is proportional to the difference in channel gain, normalized by the maximum possible channel gain
+                #             self.mat_reward_user[e, u, t] -= abs(self.H_b[b, u] - self.H_b[max_channel_gain_bs, u]) / np.max(self.H)
+                #         # else:
+                #         #     self.mat_reward_user[e, u, t] += 1
                 #self.reward += np.sum(self.mat_reward_user[e, :, t]) # some negative value
                 # Normalize total reward so it does not exceed -1
                 # reward = max(reward, -1)
@@ -363,7 +408,7 @@ class _main_:
                     if flag_uu_failure_due_to_rate[u] == 1:
                         self.mat_reward_user[e, u, t] -= 1 # punish those users who had bad delay (although we fade the uu tx delay in measurements )
             
-                self.reward += np.average(self.mat_reward_user[e, :, t])
+                #self.reward += np.average(self.mat_reward_user[e, :, t])
                 ##Reward with number of connected devices! (ANOTHER IDEA)
                 self.sigma_SSL_R = 0
                 cnt_rate_u = 0
@@ -373,13 +418,17 @@ class _main_:
                             # min_rate specification
                             self.R_s = self.mat_specs[u, 1]
                             self.mat_ssl_u_rate[e, u, t] = (self.mat_rate[u] / self.R_s)
+                            temp_rate_satisfaction_ratio = (self.mat_rate[u] / self.R_s)**10 # to widen the gap between satisfied and unsatisfied users
+                            self.mat_fittingness_u_rate[e, u, t] = (temp_rate_satisfaction_ratio) / (1 + temp_rate_satisfaction_ratio) # sigmoid function
                             cnt_rate_u += (self.mat_rate[u] >= self.R_s)
                 
                 self.mat_satisfied_rate_constraint[e, t] = cnt_rate_u / USER_NO
-                # Find the maximum value of mat_ssl_u_rate
-                self.max_rate[e, t] = np.max(self.mat_ssl_u_rate[e, :, t])
-                # Normalize mat_ssl_u_rate between 0 and 1
-                self.mat_ssl_u_rate[e, :, t] = self.mat_ssl_u_rate[e, :, t] / (self.max_rate[e, t] if self.max_rate[e, t] != 0 else 1)# self.max_rate[e, t]
+                self.mat_ssl_rate[e, t] = np.average(self.mat_fittingness_u_rate[e, :, t]) 
+
+                # # Find the maximum value of mat_ssl_u_rate
+                # self.max_rate[e, t] = np.max(self.mat_ssl_u_rate[e, :, t])
+                # # Normalize mat_ssl_u_rate between 0 and 1
+                # self.mat_ssl_u_rate[e, :, t] = self.mat_ssl_u_rate[e, :, t] / (self.max_rate[e, t] if self.max_rate[e, t] != 0 else 1)# self.max_rate[e, t]
                 ##########################
                 self.sigma_SSL_D = 0
                 cnt_delay_u = 0
@@ -389,77 +438,31 @@ class _main_:
                             # max_tolerable_delay specification
                             self.D_s = self.mat_specs[u, 2]
                             self.mat_ssl_u_delay[e, u, t] = (self.D_s / self.mat_delay_tot[u])
+                            temp_delay_satisfaction_ratio = (self.D_s / self.mat_delay_tot[u])**10 # to widen the gap between satisfied and unsatisfied users
+                            self.mat_fittingness_u_delay[e, u, t] = (temp_delay_satisfaction_ratio) / (1 + temp_delay_satisfaction_ratio) # sigmoid function
                             cnt_delay_u += (self.mat_delay_tot[u] <= self.D_s)
                 
                 self.mat_satisfied_delay_constraint[e, t] = cnt_delay_u / USER_NO
-                self.max_inversed_delay[e, t] = np.max(self.mat_ssl_u_delay[e, :, t])
-                self.mat_ssl_u_delay[e, :, t] = self.mat_ssl_u_delay[e, :, t] / (self.max_inversed_delay[e, t] if self.max_inversed_delay[e, t] != 0 else 1) # normalized
-
-                ### Now compute the SSL:
-                self.mat_ssl_user[e, :, t] = (self.mat_ssl_u_rate[e, :, t] **(OMEGA_1)) * ((self.mat_ssl_u_delay[e, :, t] )**(1 - OMEGA_1)) # utility function
-
-                self.mat_ssl_rate[e, t] = np.sum(self.mat_ssl_u_rate[e, :, t]) / (1 + np.sum(self.mat_ssl_u_rate[e, :, t]))
-                self.mat_ssl_delay[e, t] = np.sum(self.mat_ssl_u_delay[e, :, t]) / (1 + np.sum(self.mat_ssl_u_delay[e, :, t]))
+                self.mat_ssl_delay[e, t] = np.average(self.mat_fittingness_u_delay[e, :, t])
 
                 self.mat_ssl[e, t] = (self.mat_ssl_rate[e, t]**(OMEGA_1)) * ((self.mat_ssl_delay[e, t])**(1 - OMEGA_1)) # utility function
-
-                self.reward += self.mat_ssl[e, t]
-
+                self.reward += 100 * self.mat_ssl[e, t]
                 self.mat_reward[e, t] = self.reward
-                # for s in range(SLICE_NO):
-                #     for u in range(USER_NO):
-                #         if self.mat_specs[u, 0] == s:
-                #             # min_rate specification
-                #             self.R_s = self.mat_specs[u, 1]
-                #             self.mat_ssl_u_rate[e, u, t] = (self.mat_rate[u] / self.R_s)
-                #             if self.mat_rate[u] < self.R_s:
-                #                 self.mat_reward_user[e, u, t] -= 1 # (self.R_s - self.mat_rate[u]) / self.R_s
-                #                 #self.reward -= (self.R_s - self.mat_rate[u]) / (self.R_s * USER_NO)
-                #             elif self.mat_rate[u] > 2 * self.R_s:
-                #                 self.mat_reward_user[e, u, t] -= 0.5
-                #             else:
-                #                 self.mat_reward_user[e, u, t] += 1
-                #             self.sigma_SSL_R += self.mat_ssl_u_rate[e, u, t]
+                # self.max_inversed_delay[e, t] = np.max(self.mat_ssl_u_delay[e, :, t])
+                # self.mat_ssl_u_delay[e, :, t] = self.mat_ssl_u_delay[e, :, t] / (self.max_inversed_delay[e, t] if self.max_inversed_delay[e, t] != 0 else 1) # normalized
 
-                # self.SSL_R = self.sigma_SSL_R / (1 + self.sigma_SSL_R)
-                # self.mat_ssl_rate[e, t] = self.SSL_R
-
-                # self.sigma_SSL_D = 0
-                # for s in range(SLICE_NO):
-                #     for u in range(USER_NO):
-                #         if self.mat_specs[u, 0] == s:
-                #             # max_tolerable_delay specification
-                #             self.D_s = self.mat_specs[u, 2]
-                #             self.mat_ssl_u_delay[e, u, t] = (self.D_s / self.mat_delay_tot[u])
-                #             if self.D_s < self.mat_delay_tot[u]:
-                #                 self.mat_reward_user[e, u, t] -= 1 # (self.mat_delay_tot[u]- self.D_s) / self.D_s
-                #                 #self.reward -= (self.mat_delay_tot[u]- self.D_s) / (self.D_s * USER_NO)
-                #             self.sigma_SSL_D += self.mat_ssl_u_delay[e, u, t]
-
-                # self.SSL_D = self.sigma_SSL_D / (1 + self.sigma_SSL_D)
-                # self.mat_ssl_delay[e, t] = self.SSL_D
-                # # -------------------
+                # ### Now compute the SSL:
                 # self.mat_ssl_user[e, :, t] = (self.mat_ssl_u_rate[e, :, t] **(OMEGA_1)) * ((self.mat_ssl_u_delay[e, :, t] )**(1 - OMEGA_1)) # utility function
 
-                # self.mat_ssl[e, t] = (self.SSL_R**(OMEGA_1)) * ((self.SSL_D)**(1 - OMEGA_1)) # utility function
+                # self.mat_ssl_rate[e, t] = np.sum(self.mat_ssl_u_rate[e, :, t]) / (1 + np.sum(self.mat_ssl_u_rate[e, :, t]))
+                # self.mat_ssl_delay[e, t] = np.sum(self.mat_ssl_u_delay[e, :, t]) / (1 + np.sum(self.mat_ssl_u_delay[e, :, t]))
 
-                # # self.mat_reward_user[e, :, t] = np.clip(self.mat_reward_user[e, :, t], -1, 1) # Turning very negative rewards (punishments) to -1
+                # # self.mat_ssl[e, t] = (self.mat_ssl_rate[e, t]**(OMEGA_1)) * ((self.mat_ssl_delay[e, t])**(1 - OMEGA_1)) # utility function
+                # self.mat_ssl[e, t] = np.average(self.mat_ssl_user[e, :, t]) # utility function
 
-                # # self.mat_reward_user[e, :, t] += self.mat_ssl_user[e, :, t] # / (np.max(self.mat_ssl_user[e, :, t])) # utility function
-                # self.reward += np.sum(self.mat_reward_user[e, :, t]) # / USER_NO
+                # self.reward += self.mat_ssl[e, t]
+
                 # self.mat_reward[e, t] = self.reward
-
-                # if self.mat_ssl[e, t] >=0: #  >= 0.5:
-                #     # C10 constraint
-                #     self.reward += self.mat_ssl[e, t] # between 0 and 1 ###100 * self.mat_ssl[m, t] # between 0 and 100
-                #     # print(style.GREEN + 'Reward: {} in episode {} MC {}'.format(self.reward, t, m))
-                #     self.mat_reward[e, t] = self.reward
-                # else:
-                #     print(style.YELLOW + '(Unsatisfied) Reward: {} in timestep {} of episode {}'.format(self.reward, t, e))
-                # else:
-                #     self.reward = self.mat_satisfied_delay_constraint[e,t] - 1 #between -1 and 0 (If the satisfaction is 0.7, reward would be -0.3)
-                #     self.mat_reward[e, t] = self.reward
-
                 # ---------Next state calculation--------------
                 LC_next = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY,
                               X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
@@ -502,12 +505,12 @@ class _main_:
                 print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs'.format(e, count_handovers))
                 LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
-        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay
+        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers
 
 
 # %%
 M = _main_(E, T)
-mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay = M._()
+mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers = M._()
 # mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, monte_mat_delay_tot, monte_mat_delay_tot_pred, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix, LC, mat_associator, loc_user = M._()
 
 # %%%%%%%
@@ -515,7 +518,7 @@ mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_
 # save for later (use savez_compressed for compression)
 filename = f'O-RAN SAC (Normal and Proactive), U={USER_NO}, PRB={PRB_NO}, BS={BS_NO}, E={E}, T={T}, VELOCITY={VELOCITY}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
 np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shannon=shannon, mat_gain=mat_gain, mat_power=mat_power, mat_reward=mat_reward, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_power_constraint=mat_satisfied_power_constraint,
-                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay)
+                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay, mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers)
 # np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, mat_u_bs_dist_pred=mat_u_bs_dist_pred, shannon=shannon, shannon_pred=shannon_pred, mat_gain=mat_gain, mat_gain_pred=mat_gain_pred, mat_power=mat_power, mat_power_pred=mat_power_pred, mat_reward=mat_reward, mat_reward_pred=mat_reward_pred, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred=mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint=mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred=mat_satisfied_power_constraint_pred,
 #                     mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, monte_mat_delay_tot=monte_mat_delay_tot, monte_mat_delay_tot_pred=monte_mat_delay_tot_pred, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred=mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred=mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix=du_ru_adj_matrix, mat_associator=mat_associator)
 
@@ -784,7 +787,7 @@ plt.legend()
 plt.show()
 
 ###
-average_rate_ssl_u = np.mean(mat_ssl_u_rate, axis=2)
+average_rate_ssl_u = np.mean(mat_fittingness_u_rate, axis=2)
 
 for user_idx in range(USER_NO):
     plt.plot(moving_average(range(E), window_size), moving_average(average_rate_ssl_u[:,user_idx], window_size), label=f'User {user_idx+1}')
@@ -795,13 +798,38 @@ plt.legend()
 plt.show()
 
 ###
-average_delay_ssl_u = np.mean(mat_ssl_u_delay, axis=2)
+average_delay_ssl_u = np.mean(mat_fittingness_u_delay, axis=2)
 
 for user_idx in range(USER_NO):
     plt.plot(moving_average(range(E), window_size), moving_average(average_delay_ssl_u[:,user_idx], window_size), label=f'User {user_idx+1}')
 plt.xlabel('E')
 plt.ylabel('SSL_delay_u')
 plt.title('Normalized delay satisfaction')
+plt.legend()
+plt.show()
+###
+plot_graph("Sum of handovers (each episode)",
+           [moving_average(np.sum(mat_count_handovers, axis=1) , window_size)],
+           ['SAC'],
+           ['blue'],
+           ['solid'],
+           "Timestep",
+           "Sum of handovers (each episode)")
+###
+plot_graph("Average No. of handovers per user",
+           [moving_average(np.average(mat_count_handovers, axis=1) , window_size)],
+           ['SAC'],
+           ['blue'],
+           ['solid'],
+           "Timestep",
+           "Average No. of handovers per user")
+# ###
+
+for user_idx in range(USER_NO):
+    plt.plot(moving_average(range(E), window_size), moving_average(mat_count_handovers[:,user_idx], window_size), label=f'User {user_idx+1}')
+plt.xlabel('E')
+plt.ylabel('No. of handovers per user')
+plt.title('No. of handovers per user')
 plt.legend()
 plt.show()
 
