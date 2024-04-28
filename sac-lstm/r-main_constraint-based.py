@@ -18,7 +18,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
-config_file = 'config.yaml'
+config_file = 'config_lstm.yaml'
 
 # Load the configuration file
 with open(config_file, 'r') as f:
@@ -55,11 +55,12 @@ E = config['E']
 T = config['T']
 #MC = config['MC']
 # DRL Hyperparameters
+GAMMA = config['GAMMA']
 ALPHA_ACT = config['ALPHA_ACT']
 BETA_ACT = config['BETA_ACT']
 VAR = config['VAR']
 DECAY_VAR = config['DECAY_VAR']
-GAMMA = config['GAMMA']
+
 # ----------------------------------------
 # %
 # %% main class

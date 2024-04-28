@@ -23,41 +23,51 @@ class Attention(nn.Module):
         return output
     
 class CriticNetwork(nn.Module):
-    def __init__(self, beta, input_dims, n_actions, fc1_dims = 256, lstm_dims = 128, fc2_dims = 256,
+    def __init__(self, beta, input_dims, n_actions, fc1_dims = 256, lstm1_dims = 128, lstm2_dims = 128, fc2_dims = 256,
             name = 'critic', chkpt_dir = 'tmp/sac'):
         super(CriticNetwork, self).__init__()
         self.input_dims = input_dims
-        self.fc1_dims = fc1_dims
-        self.lstm_dims = lstm_dims
-        self.fc2_dims = fc2_dims
+        # self.fc1_dims = fc1_dims
+        self.lstm1_dims = lstm1_dims
+        self.lstm2_dims = lstm2_dims
+        # self.fc2_dims = fc2_dims
         self.n_actions = n_actions
         self.name = name
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_sac')
 
-        self.fc1 = nn.Linear(self.input_dims + n_actions, self.fc1_dims)
-        self.lstm = nn.LSTM(fc1_dims, lstm_dims, batch_first=True)
-        self.attention = Attention(lstm_dims)
-        self.fc2 = nn.Linear(lstm_dims, fc2_dims)
-        self.q = nn.Linear(self.fc2_dims, 1)
+        self.lstm1 = nn.LSTM(self.input_dims + self.n_actions, self.lstm1_dims, batch_first=True)
+        self.lstm2 = nn.LSTM(self.lstm1_dims, self.lstm2_dims, batch_first=True)
+        self.q = nn.Linear(self.lstm2_dims, 1)
+
+        # self.fc1 = nn.Linear(self.input_dims + n_actions, self.fc1_dims)
+        # self.lstm = nn.LSTM(fc1_dims, lstm_dims, batch_first=True)
+        # self.attention = Attention(lstm_dims)
+        # self.fc2 = nn.Linear(lstm_dims, fc2_dims)
+        # self.q = nn.Linear(self.fc2_dims, 1)
 
         self.optimizer = optim.Adam(self.parameters(), lr = beta)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
 
         self.to(self.device)
 
-    def forward(self, state, action):
-        action_value = self.fc1(T.cat([state, action], dim=1))
-        action_value = F.relu(action_value)
-        action_value = action_value.unsqueeze(1)  # Add sequence dimension
-        action_value, _ = self.lstm(action_value)
-        action_value = self.attention(action_value)
-        action_value = self.fc2(action_value)
-        action_value = F.relu(action_value)
+    def forward(self, state, action, hidden=None):
+        # action_value = self.fc1(T.cat([state, action], dim=1))
+        # action_value = F.relu(action_value)
+        # action_value = action_value.unsqueeze(1)  # Add sequence dimension
+        # action_value, _ = self.lstm(action_value)
+        # action_value = self.attention(action_value)
+        # action_value = self.fc2(action_value)
+        # action_value = F.relu(action_value)
 
-        q = self.q(action_value)
+        # q = self.q(action_value)
 
-        return q
+        state_action = T.cat([state, action], dim=-1).unsqueeze(1)  # Ensure it's [batch, 1, features]
+        state_action, hidden = self.lstm1(state_action, hidden)  # Pass through first LSTM layer
+        state_action, hidden = self.lstm2(state_action, hidden)  # Pass through second LSTM layer
+        q_value = self.q(state_action[:, -1, :])  # Take output from the last timestep
+
+        return q_value#, hidden
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_file)
@@ -102,13 +112,14 @@ class ValueNetwork(nn.Module):
         self.load_state_dict(T.load(self.checkpoint_file))
 
 class ActorNetwork(nn.Module):
-    def __init__(self, alpha, input_dims, max_action, fc1_dims = 256, lstm_dims = 128,
+    def __init__(self, alpha, input_dims, max_action, fc1_dims = 256, lstm1_dims = 128, lstm2_dims = 128,
             fc2_dims = 256, n_actions = 2, name = 'actor', chkpt_dir = 'tmp/sac'):
         super(ActorNetwork, self).__init__()
         self.input_dims = input_dims
-        self.fc1_dims = fc1_dims
-        self.lstm_dims = lstm_dims
-        self.fc2_dims = fc2_dims
+        # self.fc1_dims = fc1_dims
+        self.lstm1_dims = lstm1_dims
+        self.lstm2_dims = lstm2_dims
+        # self.fc2_dims = fc2_dims
         self.n_actions = n_actions
         self.name = name
         self.checkpoint_dir = chkpt_dir
@@ -116,38 +127,68 @@ class ActorNetwork(nn.Module):
         self.max_action = max_action
         self.reparam_noise = 1e-6 # probably it is the entropy coefficient, which balances between exploration and exploitation in the policy
 
-        self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
-        #LSTM
-        self.lstm = nn.LSTM(self.fc1_dims, self.lstm_dims, batch_first=True)  # Adding LSTM layer
-        self.attention = Attention(self.lstm_dims)  # Adding Attention layer
-        self.fc2 = nn.Linear(self.lstm_dims, self.fc2_dims) #nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.mu = nn.Linear(self.fc2_dims, self.n_actions)
-        self.sigma = nn.Linear(self.fc2_dims, self.n_actions)
+
+        self.lstm1 = nn.LSTM(self.input_dims, self.lstm1_dims, batch_first=True)
+        self.lstm2 = nn.LSTM(self.lstm1_dims, self.lstm2_dims, batch_first=True)
+        
+        # self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
+        # #LSTM
+        # self.lstm = nn.LSTM(self.fc1_dims, self.lstm_dims, batch_first=True)  # Adding LSTM layer
+        # self.attention = Attention(self.lstm_dims)  # Adding Attention layer
+        # self.fc2 = nn.Linear(self.lstm_dims, self.fc2_dims) #nn.Linear(self.fc1_dims, self.fc2_dims)
+        
+        self.mu = nn.Linear(self.lstm2_dims, self.n_actions)
+        self.sigma = nn.Linear(self.lstm2_dims, self.n_actions)
 
         self.optimizer = optim.Adam(self.parameters(), lr = alpha)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
 
         self.to(self.device)
 
-    def forward(self, state):
-        prob = self.fc1(state)
-        prob = F.relu(prob)
-        # Reshape for LSTM: add a sequence dimension
-        prob = prob.unsqueeze(1)  # Reshapes prob from [batch_size, features] to [batch_size, 1, features]    
-        prob, _ = self.lstm(prob)  # Process output through LSTM
-        #prob = prob[:, -1, :]  # Assuming only last timestep output is used #TO EDIT
-        prob = self.attention(prob)  # Process output through Attention layer instead of taking last timestep
-        #######################
-        prob = self.fc2(prob)
-        prob = F.tanh(prob)
-        mu = self.mu(prob)
-        sigma = self.sigma(prob)
-        sigma = T.clamp(sigma, min = self.reparam_noise, max = 1)
+    def forward(self, state, hidden=None):
+        # Ensure state is in the correct shape for LSTM processing
+        if state.dim() == 2:  # Assumes [batch, features]
+            state = state.unsqueeze(1)  # Reshape to [batch, 1, features] for sequence processing
 
-        return mu, sigma
+        if hidden:
+            state, hidden1 = self.lstm1(state, hidden[0])
+            state, hidden2 = self.lstm2(state, hidden1)
+        else:
+            state, hidden1 = self.lstm1(state)
+            state, hidden2 = self.lstm2(state)
+
+        # We use the output from the last timestep
+        mu = self.mu(state[:, -1, :])
+        sigma = self.sigma(state[:, -1, :])
+        sigma = T.clamp(sigma, min=self.reparam_noise, max=1)  # Ensure sigma is positive and within a reasonable range
+
+        return mu, sigma, (hidden1, hidden2)
+
+    def init_hidden(self, batch_size):
+        # Initializes hidden state for both LSTM layers
+        # Each hidden state is a tuple of (h_0, c_0) for LSTM layers
+        hidden1 = (T.zeros(1, batch_size, 128), T.zeros(1, batch_size, 128))
+        hidden2 = (T.zeros(1, batch_size, 128), T.zeros(1, batch_size, 128))
+        return (hidden1, hidden2)
+    # def forward(self, state):
+    #     prob = self.fc1(state)
+    #     prob = F.relu(prob)
+    #     # Reshape for LSTM: add a sequence dimension
+    #     prob = prob.unsqueeze(1)  # Reshapes prob from [batch_size, features] to [batch_size, 1, features]    
+    #     prob, _ = self.lstm(prob)  # Process output through LSTM
+    #     #prob = prob[:, -1, :]  # Assuming only last timestep output is used #TO EDIT
+    #     prob = self.attention(prob)  # Process output through Attention layer instead of taking last timestep
+    #     #######################
+    #     prob = self.fc2(prob)
+    #     prob = F.tanh(prob)
+    #     mu = self.mu(prob)
+    #     sigma = self.sigma(prob)
+    #     sigma = T.clamp(sigma, min = self.reparam_noise, max = 1)
+
+    #     return mu, sigma
 
     def sample_normal(self, state, reparameterize = True):
-        mu, sigma = self.forward(state)    # sigma
+        mu, sigma, (h1, h2) = self.forward(state)    # sigma
         action = mu
         probabilities = Normal(mu, sigma)
 
