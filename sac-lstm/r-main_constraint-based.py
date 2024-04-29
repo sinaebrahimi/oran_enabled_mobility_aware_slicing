@@ -15,9 +15,10 @@ from sac_torch import Agent
 np.random.seed(1371) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
+# config_file = 'sac-lstm/config_lstm.yaml' #
 config_file = 'config_lstm.yaml'
 
 # Load the configuration file
@@ -421,7 +422,7 @@ class _main_:
                 #self.reward += np.average(self.mat_reward_user[e, :, t])
                 ##Reward with number of connected devices! (ANOTHER IDEA)
                 self.sigma_SSL_R = 0
-                cnt_rate_u = 0
+                cnt_rate_violation_u = 0
                 for s in range(SLICE_NO):
                     for u in range(USER_NO):
                         if self.mat_specs[u, 0] == s:
@@ -430,11 +431,11 @@ class _main_:
                             self.mat_ssl_u_rate[e, u, t] = (self.mat_rate[u] / self.R_s)
                             temp_rate_satisfaction_ratio = (self.mat_rate[u] / self.R_s)**10 # to widen the gap between satisfied and unsatisfied users
                             self.mat_fittingness_u_rate[e, u, t] = (temp_rate_satisfaction_ratio) / (1 + temp_rate_satisfaction_ratio) # sigmoid function
-                            cnt_rate_u += (self.mat_rate[u] >= self.R_s)
+                            cnt_rate_violation_u += (self.mat_rate[u] >= self.R_s)
                             if self.mat_fittingness_u_rate[e, u, t] < 0.5 :# self.mat_rate[u] < self.R_s:
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_rate[e, u, t]) 
                 
-                self.mat_satisfied_rate_constraint[e, t] = cnt_rate_u / USER_NO
+                self.mat_satisfied_rate_constraint[e, t] = cnt_rate_violation_u / USER_NO
                 self.mat_ssl_rate[e, t] = np.average(self.mat_fittingness_u_rate[e, :, t]) 
 
                 # # Find the maximum value of mat_ssl_u_rate
@@ -443,7 +444,7 @@ class _main_:
                 # self.mat_ssl_u_rate[e, :, t] = self.mat_ssl_u_rate[e, :, t] / (self.max_rate[e, t] if self.max_rate[e, t] != 0 else 1)# self.max_rate[e, t]
                 ##########################
                 self.sigma_SSL_D = 0
-                cnt_delay_u = 0
+                cnt_delay_violation_u = 0
                 for s in range(SLICE_NO):
                     for u in range(USER_NO):
                         if self.mat_specs[u, 0] == s:
@@ -452,7 +453,7 @@ class _main_:
                             self.mat_ssl_u_delay[e, u, t] = (self.D_s / self.mat_delay_tot[u])
                             temp_delay_satisfaction_ratio = (self.D_s / self.mat_delay_tot[u])**10 # to widen the gap between satisfied and unsatisfied users
                             self.mat_fittingness_u_delay[e, u, t] = (temp_delay_satisfaction_ratio) / (1 + temp_delay_satisfaction_ratio) # sigmoid function
-                            cnt_delay_u += (self.mat_delay_tot[u] <= self.D_s)
+                            cnt_delay_violation_u += (self.mat_delay_tot[u] <= self.D_s)
                             if self.mat_fittingness_u_delay[e, u, t] < 0.5 :
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_delay[e, u, t])
                 
@@ -460,11 +461,17 @@ class _main_:
                     if self.mat_reward_user[e, u, t] < 0:
                         self.reward += 100 * self.mat_reward_user[e, u, t] / USER_NO
 
-                self.mat_satisfied_delay_constraint[e, t] = cnt_delay_u / USER_NO
+                self.mat_satisfied_delay_constraint[e, t] = cnt_delay_violation_u / USER_NO
                 self.mat_ssl_delay[e, t] = np.average(self.mat_fittingness_u_delay[e, :, t])
 
                 self.mat_ssl[e, t] = (self.mat_ssl_rate[e, t]**(OMEGA_1)) * ((self.mat_ssl_delay[e, t])**(1 - OMEGA_1)) # utility function
-                self.reward += 100 * self.mat_ssl[e, t]
+                
+                if cnt_delay_violation_u == 0:
+                    if cnt_rate_violation_u == 0:
+                        self.reward = 100 * self.mat_ssl[e, t] # very positive reward
+                        print('Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
+
+                #self.reward += 100 * self.mat_ssl[e, t]
                 self.mat_reward[e, t] = self.reward
                 # self.max_inversed_delay[e, t] = np.max(self.mat_ssl_u_delay[e, :, t])
                 # self.mat_ssl_u_delay[e, :, t] = self.mat_ssl_u_delay[e, :, t] / (self.max_inversed_delay[e, t] if self.max_inversed_delay[e, t] != 0 else 1) # normalized
@@ -502,9 +509,9 @@ class _main_:
                 end_time = time.time()  # Record the end time of the loop
                 # Storing the episode/timeslot runtime duration in seconds
                 self.mat_episode_runtime[e,t] = end_time - start_time
-                if e%200 == 0:
-                    if t%49 == 0:
-                        print('reward: ', self.reward)
+                # if e%200 == 0:
+                #     if t%49 == 0:
+                #         print('reward: ', self.reward)
 
                 # # plot periodically:
                 # plt.clf() # Clear the current figure
@@ -541,7 +548,7 @@ np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shan
 #                     mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, monte_mat_delay_tot=monte_mat_delay_tot, monte_mat_delay_tot_pred=monte_mat_delay_tot_pred, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred=mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred=mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix=du_ru_adj_matrix, mat_associator=mat_associator)
 
 #%% %PLOTTING THE RESULTS%%
-window_size = 50  # (for smoothing the curves in the plots)
+window_size = 200  # (for smoothing the curves in the plots)
 #####
 LC.visualize_ru_du_locations(du_ru_adj_matrix)
 # %%%%RUNTIME DURATION%%%%%%%

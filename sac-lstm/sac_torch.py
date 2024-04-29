@@ -29,11 +29,11 @@ class Agent(): # tau=0.001
         self.update_network_parameters(tau = 1)
 
     def choose_action(self, observation):
-        state = T.Tensor([observation]).to(self.actor.device)
-        actions, _ = self.actor.sample_normal(state, reparameterize = False)
-
+        # state = T.Tensor([observation]).to(self.actor.device)
+        state = T.Tensor(observation).to(self.actor.device).unsqueeze(0).unsqueeze(0)  # Add batch and sequence dimensions
+        actions, _ = self.actor.sample_normal(state, reparameterize=False)
         return actions.cpu().detach().numpy()[0]
-
+    
     def memorize(self, state, action, reward, new_state):
         self.memory.store_transition(state, action, reward, new_state) # can put 0.2 or 2 to multiply to reward for reward scaling
         self.pointer += 1
@@ -77,12 +77,19 @@ class Agent(): # tau=0.001
 
         state, action, reward, new_state = \
                 self.memory.sample_buffer(self.batch_size)
+        
+        
+    
 
         reward = T.tensor(reward, dtype = T.float).to(self.actor.device)
         # done = T.tensor(done).to(self.actor.device)
         state_ = T.tensor(new_state, dtype = T.float).to(self.actor.device)
         state = T.tensor(state, dtype = T.float).to(self.actor.device)
+        
         action = T.tensor(action, dtype = T.float).to(self.actor.device)
+
+        state = state.unsqueeze(1)  # Add sequence dimension: [batch_size, 1, feature_size]
+        state_ = state_.unsqueeze(1)  # Same for next_state
 
         value = self.value(state).view(-1)
         value_ = self.target_value(state_).view(-1)

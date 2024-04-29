@@ -26,7 +26,7 @@ PACKET_SIZE: 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23kavehma
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-E: 6000 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
+E: 2000 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
 T: 100 #100# 14000 # 1000  # Number of timeslots
 #MC: 3  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm

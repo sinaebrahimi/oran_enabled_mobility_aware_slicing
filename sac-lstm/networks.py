@@ -27,10 +27,10 @@ class CriticNetwork(nn.Module):
             name = 'critic', chkpt_dir = 'tmp/sac'):
         super(CriticNetwork, self).__init__()
         self.input_dims = input_dims
-        # self.fc1_dims = fc1_dims
+        self.fc1_dims = fc1_dims
         self.lstm1_dims = lstm1_dims
         self.lstm2_dims = lstm2_dims
-        # self.fc2_dims = fc2_dims
+        self.fc2_dims = fc2_dims
         self.n_actions = n_actions
         self.name = name
         self.checkpoint_dir = chkpt_dir
@@ -38,7 +38,9 @@ class CriticNetwork(nn.Module):
 
         self.lstm1 = nn.LSTM(self.input_dims + self.n_actions, self.lstm1_dims, batch_first=True)
         self.lstm2 = nn.LSTM(self.lstm1_dims, self.lstm2_dims, batch_first=True)
-        self.q = nn.Linear(self.lstm2_dims, 1)
+        self.fc1 = nn.Linear(self.lstm2_dims, self.fc1_dims)
+        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
+        self.q = nn.Linear(self.fc2_dims, 1)
 
         # self.fc1 = nn.Linear(self.input_dims + n_actions, self.fc1_dims)
         # self.lstm = nn.LSTM(fc1_dims, lstm_dims, batch_first=True)
@@ -62,12 +64,28 @@ class CriticNetwork(nn.Module):
 
         # q = self.q(action_value)
 
-        state_action = T.cat([state, action], dim=-1).unsqueeze(1)  # Ensure it's [batch, 1, features]
+        # state_action = T.cat([state, action], dim=-1).unsqueeze(1)  # Ensure it's [batch, 1, features]
+        # state_action, hidden = self.lstm1(state_action, hidden)  # Pass through first LSTM layer
+        # state_action, hidden = self.lstm2(state_action, hidden)  # Pass through second LSTM layer
+        # q_value = self.q(state_action[:, -1, :])  # Take output from the last timestep
+        # Ensure action has the same number of dimensions as state
+        if action.dim() == 2:  # Assuming action comes as [batch, action_size]
+            action = action.unsqueeze(1)  # Reshape to [batch, 1, action_size]
+        
+        # Concatenate along the feature dimension (last dimension)
+        state_action = T.cat([state, action], dim=-1)  # Now both have sequence dimension
+        
+        # Proceed with LSTM layers
         state_action, hidden = self.lstm1(state_action, hidden)  # Pass through first LSTM layer
         state_action, hidden = self.lstm2(state_action, hidden)  # Pass through second LSTM layer
-        q_value = self.q(state_action[:, -1, :])  # Take output from the last timestep
+        state_action = state_action[:, -1, :]  # Take the last sequence output
 
-        return q_value#, hidden
+        q = self.fc1(state_action)
+        q = F.relu(q)
+        q = self.fc2(q)
+        q = F.relu(q)
+        q = self.q(q)
+        return q #, hidden
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_file)
@@ -116,12 +134,12 @@ class ActorNetwork(nn.Module):
             fc2_dims = 256, n_actions = 2, name = 'actor', chkpt_dir = 'tmp/sac'):
         super(ActorNetwork, self).__init__()
         self.input_dims = input_dims
-        # self.fc1_dims = fc1_dims
+        self.fc1_dims = fc1_dims
         self.lstm1_dims = lstm1_dims
         self.lstm2_dims = lstm2_dims
-        # self.fc2_dims = fc2_dims
+        self.fc2_dims = fc2_dims
         self.n_actions = n_actions
-        self.name = name
+        self.name = name    
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac')
         self.max_action = max_action
@@ -130,15 +148,17 @@ class ActorNetwork(nn.Module):
 
         self.lstm1 = nn.LSTM(self.input_dims, self.lstm1_dims, batch_first=True)
         self.lstm2 = nn.LSTM(self.lstm1_dims, self.lstm2_dims, batch_first=True)
-        
+        self.fc1 = nn.Linear(self.lstm2_dims, self.fc1_dims)
+        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
+
         # self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
         # #LSTM
         # self.lstm = nn.LSTM(self.fc1_dims, self.lstm_dims, batch_first=True)  # Adding LSTM layer
         # self.attention = Attention(self.lstm_dims)  # Adding Attention layer
         # self.fc2 = nn.Linear(self.lstm_dims, self.fc2_dims) #nn.Linear(self.fc1_dims, self.fc2_dims)
         
-        self.mu = nn.Linear(self.lstm2_dims, self.n_actions)
-        self.sigma = nn.Linear(self.lstm2_dims, self.n_actions)
+        self.mu = nn.Linear(self.fc2_dims, self.n_actions)
+        self.sigma = nn.Linear(self.fc2_dims, self.n_actions)
 
         self.optimizer = optim.Adam(self.parameters(), lr = alpha)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
@@ -146,23 +166,22 @@ class ActorNetwork(nn.Module):
         self.to(self.device)
 
     def forward(self, state, hidden=None):
-        # Ensure state is in the correct shape for LSTM processing
-        if state.dim() == 2:  # Assumes [batch, features]
-            state = state.unsqueeze(1)  # Reshape to [batch, 1, features] for sequence processing
+        # Assuming state is already properly batched and has sequence dimensions [batch, sequence, features]
+        state, hidden = self.lstm1(state, hidden)  # Pass through first LSTM layer
+        state, hidden = self.lstm2(state, hidden)  # Pass through second LSTM layer
 
-        if hidden:
-            state, hidden1 = self.lstm1(state, hidden[0])
-            state, hidden2 = self.lstm2(state, hidden1)
-        else:
-            state, hidden1 = self.lstm1(state)
-            state, hidden2 = self.lstm2(state)
+        # LSTM outputs: state is [batch, sequence, features], take last sequence output
+        state = state[:, -1, :]  # Taking the last time step's output for further processing
 
-        # We use the output from the last timestep
-        mu = self.mu(state[:, -1, :])
-        sigma = self.sigma(state[:, -1, :])
-        sigma = T.clamp(sigma, min=self.reparam_noise, max=1)  # Ensure sigma is positive and within a reasonable range
+        prob = self.fc1(state)
+        prob = F.relu(prob)
+        prob = self.fc2(prob)
+        prob = F.tanh(prob)
+        mu = self.mu(prob)
+        sigma = self.sigma(prob)
+        sigma = T.clamp(sigma, min=self.reparam_noise, max=1)
 
-        return mu, sigma, (hidden1, hidden2)
+        return mu, sigma
 
     def init_hidden(self, batch_size):
         # Initializes hidden state for both LSTM layers
@@ -188,7 +207,7 @@ class ActorNetwork(nn.Module):
     #     return mu, sigma
 
     def sample_normal(self, state, reparameterize = True):
-        mu, sigma, (h1, h2) = self.forward(state)    # sigma
+        mu, sigma = self.forward(state)    # sigma
         action = mu
         probabilities = Normal(mu, sigma)
 
