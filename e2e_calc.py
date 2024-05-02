@@ -90,67 +90,74 @@ class Mapping:
         return self.temp_chi_reshaped, self.chi_num, self.chi
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
     #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
+    
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e2 = self.e1 + self.USER_NO
         self.temp_rho = (self.action[self.e1:self.e2]+1)/2 
-        # Scale normalized actions by the rate requirements from mat_specs
-        normalized_rate_requirements = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1])
-        rate_scaled_rho = self.temp_rho * normalized_rate_requirements# scale it with the rate requirements
-        self.temp_rho_reshaped = np.reshape(rate_scaled_rho, [self.USER_NO])
-
-        # Calculate minimum PRBs required based on some rate to PRB mapping logic
-        min_prbs_per_user = np.ceil(self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1]) * self.PRB_NO / self.USER_NO).astype(int)
-        min_prbs_per_user = np.clip(min_prbs_per_user, 1, self.PRB_NO)  # Ensure at least 1 PRB, adjust logic as needed
-
-
+        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
         self.rho_num = np.floor(self.temp_rho_reshaped * self.PRB_NO)
-        # Ensure minimum PRBs are allocated if the initial calculation is too low
-        self.rho_num = np.maximum(self.rho_num, min_prbs_per_user)
         self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO).astype(int)
-        #self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO -1).astype(int)
 
         unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
 
-        # First Phase: Allocate minimum PRBs to each user
-        for u in range(self.USER_NO):
-            allocated_prbs = 0
-            for k in range(self.PRB_NO):
-                for b in range(self.BS_NO):
-                    if self.chi[u, b] == 1 and allocated_prbs < min_prbs_per_user[u]:
-                        if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is free
-                            self.rho[b, k, u] = 1
-                            allocated_prbs += 1
+        # #
+        # # Scale normalized actions by the rate requirements from mat_specs
+        # normalized_rate_requirements = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1])
+        # rate_scaled_rho = self.temp_rho * normalized_rate_requirements# scale it with the rate requirements
+        # self.temp_rho_reshaped = np.reshape(rate_scaled_rho, [self.USER_NO])
 
-        # Second Phase: Allocate remaining PRBs to users
-        for u in range(self.USER_NO):
-            additional_prbs_needed = self.rho_num[u] - np.sum(self.rho[:, :, u])
-            for k in range(self.PRB_NO):
-                for b in range(self.BS_NO):
-                    if self.chi[u, b] == 1 and additional_prbs_needed > 0:
-                        if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is still free
-                            self.rho[b, k, u] = 1
-                            additional_prbs_needed -= 1
+        # # Calculate minimum PRBs required based on some rate to PRB mapping logic
+        # min_prbs_per_user = np.ceil(self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1]) * self.PRB_NO / self.USER_NO).astype(int)
+        # min_prbs_per_user = np.clip(min_prbs_per_user, 1, self.PRB_NO)  # Ensure at least 1 PRB, adjust logic as needed
 
-        # Check final allocations
-        for u in range(self.USER_NO):
-            if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
-                unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
 
-        # for k in range(self.PRB_NO):
-        #     for b in range(self.BS_NO):
-        #         for u in range(self.USER_NO):
-        #             if self.chi[u, b] == 1:
-        #                 if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
-        #                     if np.sum(self.rho[b, k, :]) != 1:
-        #                         self.rho[b, k, u] = 1
+        # self.rho_num = np.floor(self.temp_rho_reshaped * self.PRB_NO)
+        # # Ensure minimum PRBs are allocated if the initial calculation is too low
+        # self.rho_num = np.maximum(self.rho_num, min_prbs_per_user)
+        # self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO).astype(int)
+        # #self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO -1).astype(int)
 
+        
+
+        # # First Phase: Allocate minimum PRBs to each user
+        # for u in range(self.USER_NO):
+        #     allocated_prbs = 0
+        #     for k in range(self.PRB_NO):
+        #         for b in range(self.BS_NO):
+        #             if self.chi[u, b] == 1 and allocated_prbs < min_prbs_per_user[u]:
+        #                 if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is free
+        #                     self.rho[b, k, u] = 1
+        #                     allocated_prbs += 1
+
+        # # Second Phase: Allocate remaining PRBs to users
+        # for u in range(self.USER_NO):
+        #     additional_prbs_needed = self.rho_num[u] - np.sum(self.rho[:, :, u])
+        #     for k in range(self.PRB_NO):
+        #         for b in range(self.BS_NO):
+        #             if self.chi[u, b] == 1 and additional_prbs_needed > 0:
+        #                 if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is still free
+        #                     self.rho[b, k, u] = 1
+        #                     additional_prbs_needed -= 1
+
+        # # Check final allocations
         # for u in range(self.USER_NO):
         #     if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
         #         unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
+
+        for k in range(self.PRB_NO):
+            for b in range(self.BS_NO):
+                for u in range(self.USER_NO):
+                    if self.chi[u, b] == 1:
+                        if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
+                            if np.sum(self.rho[b, k, :]) != 1:
+                                self.rho[b, k, u] = 1
+
+        for u in range(self.USER_NO):
+            if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
+                unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
         
         return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs
-    
-
+   
     def ran_power_allocation(self):
         self.e3 = self.e2 + self.USER_NO
         self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]

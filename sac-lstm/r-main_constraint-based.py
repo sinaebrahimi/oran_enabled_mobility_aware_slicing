@@ -56,7 +56,7 @@ E = config['E']
 T = config['T']
 #MC = config['MC']
 # DRL Hyperparameters
-GAMMA = config['GAMMA']
+PSI = config['PSI']
 ALPHA_ACT = config['ALPHA_ACT']
 BETA_ACT = config['BETA_ACT']
 VAR = config['VAR']
@@ -170,7 +170,8 @@ class _main_:
 
 
     def _(self):
-        #resetting the SAC agent here!            
+        #resetting the SAC agent here!  
+        print(E, T)          
         self.agent = Agent(ALPHA_ACT, BETA_ACT, self.num_actions, self.state_size)
         self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
         self.decay_var = DECAY_VAR
@@ -247,9 +248,9 @@ class _main_:
                     # to add H(t+1) from LSTM prediction
                     # alpha * self.mat_chi_compressed[e, :, t-1] + (1-alpha) * self.mat_chi_compressed_pred[e, :, t-2]
                     SC = StateCalculation(self.H_b, self.mat_ssl_u_rate[e, :, t-1], self.mat_ssl_u_delay[e, :, t-1], 
-                                          GAMMA * self.mat_chi_compressed[e, :, t-1] + (1- GAMMA) * self.mat_chi_compressed[e, :, t-2], 
-                                          GAMMA * self.mat_rho_compressed[e, :, t-1] + (1- GAMMA) * self.mat_rho_compressed[e, :, t-2],
-                                          GAMMA * self.mat_p_compressed[e, :, t-1] + (1- GAMMA) * self.mat_p_compressed[e, :, t-2])
+                                          PSI * self.mat_chi_compressed[e, :, t-1] + (1- PSI) * self.mat_chi_compressed[e, :, t-2], 
+                                          PSI * self.mat_rho_compressed[e, :, t-1] + (1- PSI) * self.mat_rho_compressed[e, :, t-2],
+                                          PSI * self.mat_p_compressed[e, :, t-1] + (1- PSI) * self.mat_p_compressed[e, :, t-2])
                     self.state = SC._()
                 self.mat_delay_tot = np.ones([USER_NO])
                 #self.mat_delay_tot_pred = np.ones([USER_NO])
@@ -457,19 +458,19 @@ class _main_:
                             if self.mat_fittingness_u_delay[e, u, t] < 0.5 :
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_delay[e, u, t])
                 
-                for u in range(USER_NO):
-                    if self.mat_reward_user[e, u, t] < 0:
-                        self.reward += 100 * self.mat_reward_user[e, u, t] / USER_NO
+                # for u in range(USER_NO):
+                #     if self.mat_reward_user[e, u, t] < 0:
+                #         self.reward += 100 * self.mat_reward_user[e, u, t] / USER_NO
 
                 self.mat_satisfied_delay_constraint[e, t] = cnt_delay_violation_u / USER_NO
                 self.mat_ssl_delay[e, t] = np.average(self.mat_fittingness_u_delay[e, :, t])
 
                 self.mat_ssl[e, t] = (self.mat_ssl_rate[e, t]**(OMEGA_1)) * ((self.mat_ssl_delay[e, t])**(1 - OMEGA_1)) # utility function
-                
+                self.reward += 100 * self.mat_ssl[e, t] 
                 if cnt_delay_violation_u == 0:
                     if cnt_rate_violation_u == 0:
-                        self.reward = 100 * self.mat_ssl[e, t] # very positive reward
-                        print('Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
+                        # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
+                        print(style.RED + 'Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
 
                 #self.reward += 100 * self.mat_ssl[e, t]
                 self.mat_reward[e, t] = self.reward
@@ -528,7 +529,7 @@ class _main_:
             # in m loop
             if e%100 == 0:
                 print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs'.format(e, count_handovers))
-                LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
+                # LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
         return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers
 
