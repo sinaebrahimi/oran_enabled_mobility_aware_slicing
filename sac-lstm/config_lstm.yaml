@@ -1,14 +1,14 @@
 # config.yaml lstm
-USER_NO: 8 #10 #20 # 4
+USER_NO: 10 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
-PRB_NO: 80 #  (to be updated after consulting with Faouzi)
+PRB_NO: 200 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
 ETA_AREA: 3 # for rural areas according to TS 38.215 (Used in the Rayleigh/Distance formula for calculating data rate (Shannon)); equal to 3 for rural; 4 for urban areas # check also 38.913 for mobility scenarios and classes
 X_LIM: 1000
 Y_LIM: 1000
 #CU_NO: 1 # only 1 CU is envisioned. It is co-located with the Near-RT RIC
 DU_NO: 2 # all connected to the CU
-RU_PER_DU_NO: 2 # Each DU has 4 RUs; Total number of RUs = 4*2 = 8
+RU_PER_DU_NO: 3 # Each DU has 4 RUs; Total number of RUs = 4*2 = 8
 #BS_NO: 20 # should be equal to RU_PER_DU_NO*DU_NO # static for now; Location.bs_location() --- now it is bound to 4 BSs. Can be changed later
 FH_BW_CAPACITY: 5000 # 100 Mbps in twc23kavehmadani# Mbps (5 Gbps) (link between RU and its DU) #
 E2_BW_CAPACITY: 100000 # 5 Gbps in twc23kavehmadani #Mbps (100 Gbps) (link between DU and Near-RT RIC (equal to F1, which is between DU and CU))
@@ -18,7 +18,7 @@ E2_BW_CAPACITY: 100000 # 5 Gbps in twc23kavehmadani #Mbps (100 Gbps) (link betwe
 SLICE_NO: 1 #5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
 MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
 OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
-VELOCITY: 10 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
+VELOCITY: 0 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
 CONST_D_MAX: 20 #-1 # ms
 CONST_R_MIN: 5 #-1 # Mbps  
 #ISOLATION_ORDER: -1
@@ -34,4 +34,4 @@ ALPHA_ACT: 0.00001 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
 BETA_ACT: 0.00005 # 0.00005 # 0.00005 # 0.000005 # Critic's learning rate
 VAR: 1
 DECAY_VAR: 0.9994 #95 #95 # .995 # can determine the ratio of exploration to exploitation
-GAMMA: 0.5
+PSI: 0.5 # for putting two last actions in states
