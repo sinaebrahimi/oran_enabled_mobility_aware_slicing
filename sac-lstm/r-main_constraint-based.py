@@ -470,7 +470,7 @@ class _main_:
                 if cnt_delay_violation_u == 0:
                     if cnt_rate_violation_u == 0:
                         # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
-                        print(style.RED + 'Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
+                        print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
 
                 #self.reward += 100 * self.mat_ssl[e, t]
                 self.mat_reward[e, t] = self.reward
