@@ -100,61 +100,61 @@ class Mapping:
 
         unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
 
-        # #
-        # # Scale normalized actions by the rate requirements from mat_specs
-        # normalized_rate_requirements = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1])
-        # rate_scaled_rho = self.temp_rho * normalized_rate_requirements# scale it with the rate requirements
-        # self.temp_rho_reshaped = np.reshape(rate_scaled_rho, [self.USER_NO])
+        #
+        # Scale normalized actions by the rate requirements from mat_specs
+        normalized_rate_requirements = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1])
+        rate_scaled_rho = self.temp_rho * normalized_rate_requirements# scale it with the rate requirements
+        self.temp_rho_reshaped = np.reshape(rate_scaled_rho, [self.USER_NO])
 
-        # # Calculate minimum PRBs required based on some rate to PRB mapping logic
-        # min_prbs_per_user = np.ceil(self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1]) * self.PRB_NO / self.USER_NO).astype(int)
-        # min_prbs_per_user = np.clip(min_prbs_per_user, 1, self.PRB_NO)  # Ensure at least 1 PRB, adjust logic as needed
+        # Calculate minimum PRBs required based on some rate to PRB mapping logic
+        min_prbs_per_user = np.ceil(self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1]) * self.PRB_NO / self.USER_NO).astype(int)
+        min_prbs_per_user = np.clip(min_prbs_per_user, 1, self.PRB_NO)  # Ensure at least 1 PRB, adjust logic as needed
 
 
-        # self.rho_num = np.floor(self.temp_rho_reshaped * self.PRB_NO)
-        # # Ensure minimum PRBs are allocated if the initial calculation is too low
-        # self.rho_num = np.maximum(self.rho_num, min_prbs_per_user)
-        # self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO).astype(int)
-        # #self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO -1).astype(int)
+        self.rho_num = np.floor(self.temp_rho_reshaped * self.PRB_NO)
+        # Ensure minimum PRBs are allocated if the initial calculation is too low
+        self.rho_num = np.maximum(self.rho_num, min_prbs_per_user)
+        self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO).astype(int)
+        #self.rho_num = np.clip(self.rho_num, 0, self.PRB_NO -1).astype(int)
 
         
 
-        # # First Phase: Allocate minimum PRBs to each user
-        # for u in range(self.USER_NO):
-        #     allocated_prbs = 0
-        #     for k in range(self.PRB_NO):
-        #         for b in range(self.BS_NO):
-        #             if self.chi[u, b] == 1 and allocated_prbs < min_prbs_per_user[u]:
-        #                 if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is free
-        #                     self.rho[b, k, u] = 1
-        #                     allocated_prbs += 1
+        # First Phase: Allocate minimum PRBs to each user
+        for u in range(self.USER_NO):
+            allocated_prbs = 0
+            for k in range(self.PRB_NO):
+                for b in range(self.BS_NO):
+                    if self.chi[u, b] == 1 and allocated_prbs < min_prbs_per_user[u]:
+                        if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is free
+                            self.rho[b, k, u] = 1
+                            allocated_prbs += 1
 
-        # # Second Phase: Allocate remaining PRBs to users
-        # for u in range(self.USER_NO):
-        #     additional_prbs_needed = self.rho_num[u] - np.sum(self.rho[:, :, u])
-        #     for k in range(self.PRB_NO):
-        #         for b in range(self.BS_NO):
-        #             if self.chi[u, b] == 1 and additional_prbs_needed > 0:
-        #                 if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is still free
-        #                     self.rho[b, k, u] = 1
-        #                     additional_prbs_needed -= 1
+        # Second Phase: Allocate remaining PRBs to users
+        for u in range(self.USER_NO):
+            additional_prbs_needed = self.rho_num[u] - np.sum(self.rho[:, :, u])
+            for k in range(self.PRB_NO):
+                for b in range(self.BS_NO):
+                    if self.chi[u, b] == 1 and additional_prbs_needed > 0:
+                        if np.sum(self.rho[b, k, :]) == 0:  # Check if PRB is still free
+                            self.rho[b, k, u] = 1
+                            additional_prbs_needed -= 1
 
-        # # Check final allocations
-        # for u in range(self.USER_NO):
-        #     if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
-        #         unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
-
-        for k in range(self.PRB_NO):
-            for b in range(self.BS_NO):
-                for u in range(self.USER_NO):
-                    if self.chi[u, b] == 1:
-                        if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
-                            if np.sum(self.rho[b, k, :]) != 1:
-                                self.rho[b, k, u] = 1
-
+        # Check final allocations
         for u in range(self.USER_NO):
             if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
                 unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
+
+        # for k in range(self.PRB_NO):
+        #     for b in range(self.BS_NO):
+        #         for u in range(self.USER_NO):
+        #             if self.chi[u, b] == 1:
+        #                 if np.sum(self.rho[b, :, u]) < self.rho_num[u]:
+        #                     if np.sum(self.rho[b, k, :]) != 1:
+        #                         self.rho[b, k, u] = 1
+
+        # for u in range(self.USER_NO):
+        #     if np.sum(self.rho[:, :, u]) < self.rho_num[u]:
+        #         unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
         
         return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs
    
@@ -318,10 +318,9 @@ class Delay:
 
 # %%
 class StateCalculation: # TO BE COMPLETED
-    def __init__(self, H, mat_ssl_u_rate, mat_ssl_u_delay, mat_chi_compressed, mat_rho_compressed, mat_p_compressed):
+    def __init__(self, H, mat_ssl_u_total, mat_chi_compressed, mat_rho_compressed, mat_p_compressed):
         self.H = H # USER_NO * BS_NO *  PRB_NO
-        self.mat_ssl_u_rate = mat_ssl_u_rate
-        self.mat_ssl_u_delay = mat_ssl_u_delay
+        self.mat_ssl_u_total = mat_ssl_u_total
         self.mat_chi_compressed = mat_chi_compressed
         self.mat_rho_compressed = mat_rho_compressed
         self.mat_p_compressed = mat_p_compressed
@@ -330,19 +329,17 @@ class StateCalculation: # TO BE COMPLETED
 
     def _(self):
         self.s1 = self.H.size # b*k*u
-        self.s2 = self.s1 + self.mat_ssl_u_rate.size
-        self.s3 = self.s2 + self.mat_ssl_u_delay.size
-        self.s4 = self.s3 + self.mat_chi_compressed.size
-        self.s5 = self.s4 + self.mat_rho_compressed.size
-        self.s6 = self.s5 + self.mat_p_compressed.size
-        self.states_no = self.s6
+        self.s2 = self.s1 + self.mat_ssl_u_total.size
+        self.s3 = self.s2 + self.mat_chi_compressed.size
+        self.s4 = self.s3 + self.mat_rho_compressed.size
+        self.s5 = self.s4 + self.mat_p_compressed.size
+        self.states_no = self.s5
         #self.H.size + self.mat_ssl_u_rate.size + self.mat_ssl_u_delay.size + self.mat_chi_compressed.size + self.mat_rho_compressed.size + self.mat_p_compressed.size
         self.state = np.zeros([self.states_no])
 
         # self.loc_users_reshaped = np.reshape(self.loc_users_t, [self.loc_users_t.size])
         self.H_reshaped = np.reshape(self.H, [self.H.size])
-        self.mat_ssl_u_rate_reshaped = np.reshape(self.mat_ssl_u_rate, [self.mat_ssl_u_rate.size])
-        self.mat_ssl_u_delay_reshaped = np.reshape(self.mat_ssl_u_delay, [self.mat_ssl_u_delay.size])
+        self.mat_ssl_u_total_reshaped = np.reshape(self.mat_ssl_u_total, [self.mat_ssl_u_total.size])
         self.mat_chi_compressed_reshaped = np.reshape(self.mat_chi_compressed, [self.mat_chi_compressed.size])
         self.mat_rho_compressed_reshaped = np.reshape(self.mat_rho_compressed, [self.mat_rho_compressed.size])
         self.mat_p_compressed_reshaped = np.reshape(self.mat_p_compressed, [self.mat_p_compressed.size])
@@ -350,24 +347,13 @@ class StateCalculation: # TO BE COMPLETED
         # H
         self.state[0:self.s1] = (self.H_reshaped)/(np.max(self.H_reshaped)) # Normalizing the value for the neural network (avoiding errors)
         
-        # mat_ssl_u_rate
-        max_rate_ssl = np.max(self.mat_ssl_u_rate_reshaped)
-        if max_rate_ssl != 0: 
-            self.state[self.s1:self.s2] = self.mat_ssl_u_rate_reshaped / max_rate_ssl # Normalizing the value for the neural network (avoiding errors)
-        else: # error handling for t=0
-            self.state[self.s1:self.s2] = 0
-
-        # mat_ssl_u_delay
-        max_delay_ssl = np.max(self.mat_ssl_u_delay_reshaped)
-        if max_delay_ssl != 0: 
-            self.state[self.s2:self.s3] = self.mat_ssl_u_delay_reshaped / max_delay_ssl # Normalizing the value for the neural network (avoiding errors)
-        else: # error handling for t=0
-            self.state[self.s2:self.s3] = 0
+        # mat_ssl_u_total
+        self.state[self.s1:self.s2] = self.mat_ssl_u_total_reshaped        
 
         # ACTIONS
-        self.state[self.s3:self.s4] = self.mat_chi_compressed_reshaped #  no need to normalize
-        self.state[self.s4:self.s5] = self.mat_rho_compressed_reshaped #  no need to normalize
-        self.state[self.s5:self.s6] = self.mat_p_compressed_reshaped #  no need to normalize
+        self.state[self.s2:self.s3] = self.mat_chi_compressed_reshaped #  no need to normalize
+        self.state[self.s3:self.s4] = self.mat_rho_compressed_reshaped #  no need to normalize
+        self.state[self.s4:self.s5] = self.mat_p_compressed_reshaped #  no need to normalize
 
 
         # self.state[0:self.loc_users_t.size] = self.loc_users_reshaped / self.X_LIM #Normalizing to /1000?

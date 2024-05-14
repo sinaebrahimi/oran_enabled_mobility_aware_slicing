@@ -23,7 +23,7 @@ class Attention(nn.Module):
         return output
     
 class CriticNetwork(nn.Module):
-    def __init__(self, beta, input_dims, n_actions, fc1_dims = 256, lstm1_dims = 128, lstm2_dims = 128, fc2_dims = 256,
+    def __init__(self, beta, input_dims, n_actions, fc1_dims = 256, lstm1_dims = 50, lstm2_dims = 50, fc2_dims = 256,
             name = 'critic', chkpt_dir = 'tmp/sac'):
         super(CriticNetwork, self).__init__()
         self.input_dims = input_dims
@@ -130,7 +130,7 @@ class ValueNetwork(nn.Module):
         self.load_state_dict(T.load(self.checkpoint_file))
 
 class ActorNetwork(nn.Module):
-    def __init__(self, alpha, input_dims, max_action, fc1_dims = 256, lstm1_dims = 128, lstm2_dims = 128,
+    def __init__(self, alpha, input_dims, max_action, fc1_dims = 256, lstm1_dims = 50, lstm2_dims = 50,
             fc2_dims = 256, n_actions = 2, name = 'actor', chkpt_dir = 'tmp/sac'):
         super(ActorNetwork, self).__init__()
         self.input_dims = input_dims

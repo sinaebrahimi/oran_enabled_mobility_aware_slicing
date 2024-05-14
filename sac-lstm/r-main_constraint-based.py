@@ -15,7 +15,7 @@ from sac_torch import Agent
 np.random.seed(1371) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
 # config_file = 'sac-lstm/config_lstm.yaml' #
@@ -90,13 +90,14 @@ class _main_:
         self.max_rate = np.zeros([E, T])
         self.max_inversed_delay = np.zeros([E, T]) 
         self.mat_ssl_u_rate = np.zeros([E, USER_NO, T])
-        self.mat_ssl_u_delay = np.zeros([E, USER_NO, T])        
+        self.mat_ssl_u_delay = np.zeros([E, USER_NO, T])  
+        self.mat_ssl_u_total = np.zeros([E, USER_NO, T])      
         self.mat_fittingness_u_rate = np.zeros([E, USER_NO, T])
         self.mat_fittingness_u_delay = np.zeros([E, USER_NO, T])
         self.mat_ssl_user = np.zeros([E, USER_NO, T])
-        self.mat_ssl_rate = np.zeros([E, T])
-        self.mat_ssl_delay = np.zeros([E, T])
-        self.mat_ssl = np.zeros([E, T])
+        self.mat_ssl_rate = np.ones([E, T])
+        self.mat_ssl_delay = np.ones([E, T])
+        self.mat_ssl = np.ones([E, T])
         self.mat_episode_runtime = np.zeros([E, T])
         self.mat_chi = np.zeros([E, USER_NO, BS_NO, T]) # only get the latest MC
 
@@ -157,7 +158,7 @@ class _main_:
         # ---------------------------------------------------------e
         #self.s1 = 2 * USER_NO # np.zeros([T, USER_NO, 2]) ## 2 for x,y of t+1
         self.s1 = BS_NO * USER_NO # H_b would be the avg of channel gains of the PRBs between u and b ### # USER_NO * BS_NO * PRB_NO # channel gain matrix (b,k,u) of t+1 # self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO]) # defined in radio_calc.py -> user_location()
-        self.s2 = self.s1 + 2 * USER_NO # vector of ssl for rate and delay per user in t-1
+        self.s2 = self.s1 + USER_NO # vector of ssl for rate and delay per user in t-1
         self.s3 = self.s2 + 3 * USER_NO # vector of actions in t-1 (chi, rho, p)
         # also add all actions of t-1 as a state (self.num_actions) BU(1+2K)
         # add the occupancy/availability of PRBs to the state: rho[b,k,u] of t (current real state (unpredicted)); (we should know which are not being utilized)
@@ -238,19 +239,11 @@ class _main_:
                 # -----------------------------------------------------
                 # SC = StateCalculation(self.loc_user[t, :], self.H, X_LIM)  ###UPDATE
                 if t==0:
-                    SC = StateCalculation(self.H_b, np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]))
-                    self.state = SC._()
-                elif t==1: 
-                    SC = StateCalculation(self.H_b, self.mat_ssl_u_rate[e, :, t-1], self.mat_ssl_u_delay[e, :, t-1], 
-                                          self.mat_chi_compressed[e, :, t-1], self.mat_rho_compressed[e, :, t-1], self.mat_p_compressed[e, :, t-1])
+                    SC = StateCalculation(self.H_b, np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]))
                     self.state = SC._()
                 else:   
-                    # to add H(t+1) from LSTM prediction
-                    # alpha * self.mat_chi_compressed[e, :, t-1] + (1-alpha) * self.mat_chi_compressed_pred[e, :, t-2]
-                    SC = StateCalculation(self.H_b, self.mat_ssl_u_rate[e, :, t-1], self.mat_ssl_u_delay[e, :, t-1], 
-                                          PSI * self.mat_chi_compressed[e, :, t-1] + (1- PSI) * self.mat_chi_compressed[e, :, t-2], 
-                                          PSI * self.mat_rho_compressed[e, :, t-1] + (1- PSI) * self.mat_rho_compressed[e, :, t-2],
-                                          PSI * self.mat_p_compressed[e, :, t-1] + (1- PSI) * self.mat_p_compressed[e, :, t-2])
+                    SC = StateCalculation(self.H_b, self.mat_ssl_u_total[e, :, t-1], 
+                                          self.mat_chi_compressed[e, :, t-1], self.mat_rho_compressed[e, :, t-1], self.mat_p_compressed[e, :, t-1])
                     self.state = SC._()
                 self.mat_delay_tot = np.ones([USER_NO])
                 #self.mat_delay_tot_pred = np.ones([USER_NO])
@@ -437,7 +430,6 @@ class _main_:
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_rate[e, u, t]) 
                 
                 self.mat_satisfied_rate_constraint[e, t] = cnt_rate_violation_u / USER_NO
-                self.mat_ssl_rate[e, t] = np.average(self.mat_fittingness_u_rate[e, :, t]) 
 
                 # # Find the maximum value of mat_ssl_u_rate
                 # self.max_rate[e, t] = np.max(self.mat_ssl_u_rate[e, :, t])
@@ -458,14 +450,16 @@ class _main_:
                             if self.mat_fittingness_u_delay[e, u, t] < 0.5 :
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_delay[e, u, t])
                 
-                # for u in range(USER_NO):
-                #     if self.mat_reward_user[e, u, t] < 0:
-                #         self.reward += 100 * self.mat_reward_user[e, u, t] / USER_NO
+                for u in range(USER_NO):
+                    self.mat_ssl_u_total[e, u, t] = ((self.mat_fittingness_u_rate[e, u, t])**(OMEGA_1)) * ((self.mat_fittingness_u_delay[e, u, t])**(1 - OMEGA_1)) # utility function
 
                 self.mat_satisfied_delay_constraint[e, t] = cnt_delay_violation_u / USER_NO
-                self.mat_ssl_delay[e, t] = np.average(self.mat_fittingness_u_delay[e, :, t])
 
-                self.mat_ssl[e, t] = (self.mat_ssl_rate[e, t]**(OMEGA_1)) * ((self.mat_ssl_delay[e, t])**(1 - OMEGA_1)) # utility function
+                for u in range(USER_NO):
+                    self.mat_ssl_delay[e, t] *= (self.mat_fittingness_u_delay[e, u, t])**(1/USER_NO)
+                    self.mat_ssl_rate[e, t] *= (self.mat_fittingness_u_rate[e, u, t])**(1/USER_NO)
+                    self.mat_ssl[e, t] *= (self.mat_ssl_u_total[e, u, t])**(1/USER_NO)
+
                 self.reward += 100 * self.mat_ssl[e, t] 
                 if cnt_delay_violation_u == 0:
                     if cnt_rate_violation_u == 0:
@@ -499,7 +493,7 @@ class _main_:
                     for b in range(BS_NO):
                         self.H_b_new[b, u] = np.average(self.H_new[b, :, u])
                 # -----------------------------------------------------
-                SC = StateCalculation(self.H_b_new, self.mat_ssl_u_rate[e, :, t], self.mat_ssl_u_delay[e, :, t], self.mat_chi_compressed[e, :, t], self.mat_rho_compressed[e, :, t], self.mat_p_compressed[e, :, t])
+                SC = StateCalculation(self.H_b_new, self.mat_ssl_u_total[e, :, t], self.mat_chi_compressed[e, :, t], self.mat_rho_compressed[e, :, t], self.mat_p_compressed[e, :, t])
                 self.next_state = SC._()
                 self.next_state = self.next_state.astype('float16')
                 # -------------------------------------
@@ -528,28 +522,28 @@ class _main_:
                     #plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
             # in m loop
             if e%100 == 0:
-                print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs'.format(e, count_handovers))
+                print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs, reward= {}'.format(e, count_handovers, self.reward))
                 # LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
-        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers
+        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers, self.mat_ssl_u_total
 
 
 # %%
 M = _main_(E, T)
-mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers = M._()
+mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers, mat_ssl_u_total = M._()
 # mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, monte_mat_delay_tot, monte_mat_delay_tot_pred, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix, LC, mat_associator, loc_user = M._()
 
 # %%%%%%%
 
 # save for later (use savez_compressed for compression)
-filename = f'O-RAN SAC (Normal and Proactive), U={USER_NO}, PRB={PRB_NO}, BS={BS_NO}, E={E}, T={T}, VELOCITY={VELOCITY}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
+filename = f'O-RAN RSAC, U={USER_NO}, PRB={PRB_NO}, BS={BS_NO}, E={E}, T={T}, VELOCITY={VELOCITY}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
 np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shannon=shannon, mat_gain=mat_gain, mat_power=mat_power, mat_reward=mat_reward, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_power_constraint=mat_satisfied_power_constraint,
-                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay, mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers)
+                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay, mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers, mat_ssl_u_total=mat_ssl_u_total)
 # np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, mat_u_bs_dist_pred=mat_u_bs_dist_pred, shannon=shannon, shannon_pred=shannon_pred, mat_gain=mat_gain, mat_gain_pred=mat_gain_pred, mat_power=mat_power, mat_power_pred=mat_power_pred, mat_reward=mat_reward, mat_reward_pred=mat_reward_pred, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred=mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint=mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred=mat_satisfied_power_constraint_pred,
 #                     mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, monte_mat_delay_tot=monte_mat_delay_tot, monte_mat_delay_tot_pred=monte_mat_delay_tot_pred, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred=mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred=mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix=du_ru_adj_matrix, mat_associator=mat_associator)
 
 #%% %PLOTTING THE RESULTS%%
-window_size = 200  # (for smoothing the curves in the plots)
+window_size = 100  # (for smoothing the curves in the plots)
 #####
 LC.visualize_ru_du_locations(du_ru_adj_matrix)
 # %%%%RUNTIME DURATION%%%%%%%

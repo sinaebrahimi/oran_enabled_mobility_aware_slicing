@@ -35,8 +35,19 @@ class Specifications:
         self.packet_no = np.ceil(list_min_rate_array / packet_size_array) #packet_no per timeslot length # static for now #  it can be poisson like 10 packet per second
 
     def _(self):
+        # Calculating the number of users per slice category
+        first_slice_count = self.USER_NO // 2
+        second_slice_count = (self.USER_NO - first_slice_count) // 2
+        third_slice_count = self.USER_NO - first_slice_count - second_slice_count
+        
         for u in range(self.USER_NO):
-            user_selected_slice = np.random.randint(0, self.SLICE_NO) # choosing the slice type for the user randomly
+            if u < first_slice_count:
+                user_selected_slice = 0
+            elif u < first_slice_count + second_slice_count:
+                user_selected_slice = 1
+            else:
+                user_selected_slice = 2
+            # user_selected_slice = np.random.randint(0, self.SLICE_NO) # choosing the slice type for the user randomly
             self.mat_specs[u, 0] = user_selected_slice  # Type of slices
             self.mat_specs[u, 1] = self.list_min_rate[user_selected_slice] # self.list_min_rate[np.random.randint(len(self.list_min_rate))] #self.user_min_rate * (1 + np.random.rand())  # reqiured bandwith
             self.mat_specs[u, 2] = self.list_tolerable_delay[user_selected_slice] # self.user_tolerable_delay   #self.list_tolerable_delay[np.random.randint(len(self.list_tolerable_delay))] #  tolrable delay
