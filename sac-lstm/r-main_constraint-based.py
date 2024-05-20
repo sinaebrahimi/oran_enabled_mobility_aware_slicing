@@ -15,7 +15,7 @@ from sac_torch import Agent
 np.random.seed(1371) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # ------Loading the parameters-----------
 # Define the path to the configuration file
 # config_file = 'sac-lstm/config_lstm.yaml' #
@@ -56,6 +56,7 @@ E = config['E']
 T = config['T']
 #MC = config['MC']
 # DRL Hyperparameters
+XI = config['XI']
 PSI = config['PSI']
 ALPHA_ACT = config['ALPHA_ACT']
 BETA_ACT = config['BETA_ACT']
@@ -85,7 +86,7 @@ class _main_:
         self.mat_satisfied_power_constraint = np.zeros([E, T])
         self.mat_satisfied_rate_constraint = np.zeros([E, T])
         self.mat_satisfied_delay_constraint = np.zeros([E, T])
-        # self.mat_satisfied_fh_link_capacity_constraint = np.zeros([MC, T])
+        # self.mat_satisfied_fh_link_capacity_constr25aint = np.zeros([MC, T])
         # self.mat_satisfied_e2_link_capacity_constraint = np.zeros([MC, T])
         self.max_rate = np.zeros([E, T])
         self.max_inversed_delay = np.zeros([E, T]) 
@@ -416,20 +417,20 @@ class _main_:
                 #self.reward += np.average(self.mat_reward_user[e, :, t])
                 ##Reward with number of connected devices! (ANOTHER IDEA)
                 self.sigma_SSL_R = 0
-                cnt_rate_violation_u = 0
+                cnt_rate_passed_u = 0
                 for s in range(SLICE_NO):
                     for u in range(USER_NO):
                         if self.mat_specs[u, 0] == s:
                             # min_rate specification
                             self.R_s = self.mat_specs[u, 1]
                             self.mat_ssl_u_rate[e, u, t] = (self.mat_rate[u] / self.R_s)
-                            temp_rate_satisfaction_ratio = (self.mat_rate[u] / self.R_s)**10 # to widen the gap between satisfied and unsatisfied users
+                            temp_rate_satisfaction_ratio = (self.mat_rate[u] / self.R_s)**XI # to widen the gap between satisfied and unsatisfied users
                             self.mat_fittingness_u_rate[e, u, t] = (temp_rate_satisfaction_ratio) / (1 + temp_rate_satisfaction_ratio) # sigmoid function
-                            cnt_rate_violation_u += (self.mat_rate[u] >= self.R_s)
+                            cnt_rate_passed_u += (self.mat_rate[u] >= self.R_s)
                             if self.mat_fittingness_u_rate[e, u, t] < 0.5 :# self.mat_rate[u] < self.R_s:
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_rate[e, u, t]) 
                 
-                self.mat_satisfied_rate_constraint[e, t] = cnt_rate_violation_u / USER_NO
+                self.mat_satisfied_rate_constraint[e, t] = cnt_rate_passed_u / USER_NO
 
                 # # Find the maximum value of mat_ssl_u_rate
                 # self.max_rate[e, t] = np.max(self.mat_ssl_u_rate[e, :, t])
@@ -437,32 +438,38 @@ class _main_:
                 # self.mat_ssl_u_rate[e, :, t] = self.mat_ssl_u_rate[e, :, t] / (self.max_rate[e, t] if self.max_rate[e, t] != 0 else 1)# self.max_rate[e, t]
                 ##########################
                 self.sigma_SSL_D = 0
-                cnt_delay_violation_u = 0
+                cnt_delay_passed_u = 0
                 for s in range(SLICE_NO):
                     for u in range(USER_NO):
                         if self.mat_specs[u, 0] == s:
                             # max_tolerable_delay specification
                             self.D_s = self.mat_specs[u, 2]
                             self.mat_ssl_u_delay[e, u, t] = (self.D_s / self.mat_delay_tot[u])
-                            temp_delay_satisfaction_ratio = (self.D_s / self.mat_delay_tot[u])**10 # to widen the gap between satisfied and unsatisfied users
+                            temp_delay_satisfaction_ratio = (self.D_s / self.mat_delay_tot[u])**XI # to widen the gap between satisfied and unsatisfied users
                             self.mat_fittingness_u_delay[e, u, t] = (temp_delay_satisfaction_ratio) / (1 + temp_delay_satisfaction_ratio) # sigmoid function
-                            cnt_delay_violation_u += (self.mat_delay_tot[u] <= self.D_s)
+                            cnt_delay_passed_u += (self.mat_delay_tot[u] <= self.D_s)
                             if self.mat_fittingness_u_delay[e, u, t] < 0.5 :
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_delay[e, u, t])
                 
                 for u in range(USER_NO):
                     self.mat_ssl_u_total[e, u, t] = ((self.mat_fittingness_u_rate[e, u, t])**(OMEGA_1)) * ((self.mat_fittingness_u_delay[e, u, t])**(1 - OMEGA_1)) # utility function
+                    # if self.mat_reward_user[e, u, t] < 0:
+                    #     self.reward += 100 * self.mat_reward_user[e, u, t] / USER_NO
 
-                self.mat_satisfied_delay_constraint[e, t] = cnt_delay_violation_u / USER_NO
+                self.mat_satisfied_delay_constraint[e, t] = cnt_delay_passed_u / USER_NO
 
-                for u in range(USER_NO):
-                    self.mat_ssl_delay[e, t] *= (self.mat_fittingness_u_delay[e, u, t])**(1/USER_NO)
-                    self.mat_ssl_rate[e, t] *= (self.mat_fittingness_u_rate[e, u, t])**(1/USER_NO)
-                    self.mat_ssl[e, t] *= (self.mat_ssl_u_total[e, u, t])**(1/USER_NO)
+                # for u in range(USER_NO):
+                #     self.mat_ssl_delay[e, t] *= (self.mat_fittingness_u_delay[e, u, t])**(1/USER_NO)
+                #     self.mat_ssl_rate[e, t] *= (self.mat_fittingness_u_rate[e, u, t])**(1/USER_NO)
+                #     self.mat_ssl[e, t] *= (self.mat_ssl_u_total[e, u, t])**(1/USER_NO)
+
+                self.mat_ssl[e, t] = (np.sum(self.mat_ssl_u_total[e, :, t])) /(USER_NO)
+                self.mat_ssl_rate[e, t] = (np.sum(self.mat_fittingness_u_rate[e, :, t])) /(USER_NO)
+                self.mat_ssl_delay[e, t] = (np.sum(self.mat_fittingness_u_delay[e, :, t])) /(USER_NO)
 
                 self.reward += 100 * self.mat_ssl[e, t] 
-                if cnt_delay_violation_u == 0:
-                    if cnt_rate_violation_u == 0:
+                if cnt_delay_passed_u == USER_NO:
+                    if cnt_rate_passed_u == USER_NO:
                         # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
                         print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
 

@@ -90,8 +90,7 @@ class Mapping:
         return self.temp_chi_reshaped, self.chi_num, self.chi
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
     #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
-    
-    def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
+    def ran_prb_allocation_old(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e2 = self.e1 + self.USER_NO
         self.temp_rho = (self.action[self.e1:self.e2]+1)/2 
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
@@ -100,10 +99,10 @@ class Mapping:
 
         unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
 
-        #
-        # Scale normalized actions by the rate requirements from mat_specs
+        # # #
+        # # Scale normalized actions by the rate requirements from mat_specs
         normalized_rate_requirements = self.mat_specs[:, 1] / np.max(self.mat_specs[:, 1])
-        rate_scaled_rho = self.temp_rho * normalized_rate_requirements# scale it with the rate requirements
+        rate_scaled_rho = self.temp_rho * normalized_rate_requirements # scale it with the rate requirements
         self.temp_rho_reshaped = np.reshape(rate_scaled_rho, [self.USER_NO])
 
         # Calculate minimum PRBs required based on some rate to PRB mapping logic
@@ -157,8 +156,97 @@ class Mapping:
         #         unallocated_PRBs[u] = self.rho_num[u] - np.sum(self.rho[:, :, u])
         
         return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs
-   
+    
+
+    def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
+        self.e2 = self.e1 + self.USER_NO
+        self.temp_rho = (self.action[self.e1:self.e2]+1)/2 
+        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
+
+        # Normalize action values to represent proportion of PRBs each user should get
+        self.normalized_actions = self.temp_rho_reshaped / np.sum(self.temp_rho_reshaped)
+
+        for b in range(self.BS_NO):
+            users_connected_to_b = np.where(self.chi_num == b)[0] # set of users connected to b
+            # Allocate PRBs based on rate requirements
+            prb_allocation_weights = self.mat_specs[users_connected_to_b, 1]
+            prb_allocation_weights /= np.sum(prb_allocation_weights)  # Normalize weights
+            prbs_allocated = np.floor(self.normalized_actions[users_connected_to_b] * self.PRB_NO)
+
+            # Allocate PRBs to users
+            for i, u in enumerate(users_connected_to_b):
+                num_prbs_to_allocate = int(prbs_allocated[i])
+                available_prbs = np.where(np.sum(self.rho[b, :, :], axis=1) == 0)[0]  # Find available PRBs
+                if len(available_prbs) < num_prbs_to_allocate:
+                    num_prbs_to_allocate = len(available_prbs)
+                self.rho[b, available_prbs[:num_prbs_to_allocate], u] = 1
+
+            # Distribute remaining PRBs among users fairly
+            remaining_prbs = self.PRB_NO - np.sum(self.rho[b,:,:])
+            if remaining_prbs > 0:
+                user_priorities = self.mat_specs[users_connected_to_b, 1]
+                user_priorities /= np.sum(user_priorities)
+                num_prbs_per_user = np.floor(user_priorities * remaining_prbs).astype(int)
+                for i, u in enumerate(users_connected_to_b):
+                    available_prbs = np.where(np.sum(self.rho[b, :, :], axis=1) == 0)[0]  # Find available PRBs
+                    if len(available_prbs) < num_prbs_per_user[i]:
+                        num_prbs_per_user[i] = len(available_prbs)
+                    self.rho[b, available_prbs[:num_prbs_per_user[i]], u] = 1
+
+
+        unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
+
+        for u in range(self.USER_NO):
+            self.rho_num[u] = np.sum(self.rho[:,:,u]).astype(int)
+
+        #rho_num and unallocated_PRBs are not used in the code
+        return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs    
+    
     def ran_power_allocation(self):
+        self.e3 = self.e2 + self.USER_NO
+        self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid 0 values for power
+        self.temp_p_reshaped = np.reshape(self.temp_p, [self.USER_NO])
+
+        # Normalize action values to represent proportion of power each user should get
+        #normalized_actions = self.temp_p_reshaped / np.sum(self.temp_p_reshaped)
+        #self.scale = self.MAX_POWER / self.PRB_NO # This ensures that we'll never exceed MAX_POWER in sum_p
+
+        for b in range(self.BS_NO):
+            users_connected = np.where(self.chi_num == b)[0]
+            if len(users_connected) > 0:
+                # Get the initial power allocations for these users
+                temp_power_allocations = self.temp_p_reshaped[users_connected]
+
+                normalized_power = temp_power_allocations / np.sum(temp_power_allocations)
+                # Get the rate requirements for these users
+                rate_requirements = self.mat_specs[users_connected,1]
+                fairness_weights = rate_requirements / np.sum(rate_requirements)
+
+                adjusted_power = normalized_power * fairness_weights
+
+                # Ensure the total power does not exceed MAX_POWER of the BS
+                adjusted_power = adjusted_power / np.sum(adjusted_power) * self.MAX_POWER
+
+                self.p_num[users_connected] = adjusted_power
+
+                for k in range(self.PRB_NO):
+                    for i, u in enumerate(users_connected):
+                        if self.rho[b, k, u] == 1:
+                            self.p[b, k, u] = adjusted_power[i] / np.sum(self.rho[b, :, u])
+
+        # Ensure no user gets zero power unless their initial allocation was zero
+        # for u in range(self.USER_NO):
+        #     if self.temp_p_reshaped[u] > 0 and self.p_num[u] == 0:
+        #         # Redistribute a small amount of power to this user
+        #         for b in range(self.BS_NO):
+        #             if self.chi_num[u] == b:
+        #                 prbs_allocated = np.where(self.rho[b, :, u] == 1)[0]
+        #                 if len(prbs_allocated) > 0:
+        #                     self.p[b, prbs_allocated[0], u] = min(self.temp_p_reshaped[u], self.MAX_POWER / self.USER_NO)
+        return self.temp_p_reshaped, self.p_num, self.p
+    
+    def ran_power_allocation_old(self):
         self.e3 = self.e2 + self.USER_NO
         self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
         self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid negative values # to make sure that the values are between 0 and 1

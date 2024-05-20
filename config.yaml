@@ -1,5 +1,6 @@
+# config.yaml lstm
 # config.yaml 
-USER_NO: 10 #10 #20 # 4
+USER_NO: 15 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
 PRB_NO: 100 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
@@ -17,7 +18,7 @@ E2_BW_CAPACITY: 100000 # 5 Gbps in twc23kavehmadani #Mbps (100 Gbps) (link betwe
 #NODE_NO: 12
 SLICE_NO: 3 #5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
 MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
-OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
+OMEGA_1: 0.25 # to use in SSL weighting (for data rate term)
 VELOCITY: 0 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
 CONST_D_MAX: -1 # 20 #-1 # ms
 CONST_R_MIN: -1 # 5 #-1 # Mbps  
@@ -26,12 +27,13 @@ PACKET_SIZE: -1 # 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23ka
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-E: 3000 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
+E: 1000 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
 T: 100 #100# 14000 # 1000  # Number of timeslots
 #MC: 3  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
-ALPHA_ACT: 0.0001 #01 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
-BETA_ACT: 0.0001 # 0.00005 # 0.00005 # 0.00005 # 0.000005 # Critic's learning rate
+ALPHA_ACT: 0.00001 #01 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
+BETA_ACT: 0.00001 # 0.00005 # 0.00005 # 0.00005 # 0.000005 # Critic's learning rate
 VAR: 1
-DECAY_VAR: 0.9994 #95 #95 # .995 # can determine the ratio of exploration to exploitation
+DECAY_VAR: 0.999 #95 #95 # .995 # can determine the ratio of exploration to exploitation
 PSI: 0.5 # for putting two last actions in states
+XI: 3 # shaping parameter for SSL^B_u and SSL^D_u
