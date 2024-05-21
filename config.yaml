@@ -1,6 +1,6 @@
 # config.yaml lstm
 # config.yaml 
-USER_NO: 15 #10 #20 # 4
+USER_NO: 10 #10 #20 # 4
 BW: 180000  # %  180 kHz  (to be updated after consulting with Faouzi)
 PRB_NO: 100 #  (to be updated after consulting with Faouzi)
 SIGMA_NOISE: 10**(-17.4) #3.981e-18 # # = -174 dBm <tnsm23nouruzi> #
@@ -27,12 +27,12 @@ PACKET_SIZE: -1 # 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23ka
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
-E: 1000 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
-T: 100 #100# 14000 # 1000  # Number of timeslots
+E: 20 #1000# episodes/epochs for learning (the loop before T loop (replaces MC loop))
+T: 2000 #100# 14000 # 1000  # Number of timeslots
 #MC: 3  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
 ALPHA_ACT: 0.00001 #01 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
-BETA_ACT: 0.00001 # 0.00005 # 0.00005 # 0.00005 # 0.000005 # Critic's learning rate
+BETA_ACT: 0.00005 # 0.00005 # 0.00005 # 0.00005 # 0.000005 # Critic's learning rate
 VAR: 1
 DECAY_VAR: 0.999 #95 #95 # .995 # can determine the ratio of exploration to exploitation
 PSI: 0.5 # for putting two last actions in states

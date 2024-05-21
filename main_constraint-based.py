@@ -175,8 +175,8 @@ class _main_:
         #resetting the SAC agent here!  
         print(E,T)          
         self.agent = Agent(ALPHA_ACT, BETA_ACT, self.num_actions, self.state_size)
-        self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
-        self.decay_var = DECAY_VAR
+        # self.var = VAR # .9995 #experiment .9995 and .995 # can determine the ratio of exploration to exploitation
+        # self.decay_var = DECAY_VAR
 
         LC = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY, X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
         # -------------------------------------
@@ -408,8 +408,6 @@ class _main_:
                 # You might want to punish the reward if this is far from 1 for BSs
 
                 #########END OF ACTION ALLOCATION###############
-                if t%400 == 0:
-                    print('TEST')
 
                 RC = RateCalculation(self.p, self.rho, self.H, self.chi, BS_NO, PRB_NO, USER_NO, SIGMA_NOISE, BW)
                 self.mat_rate, self.mat_rate_prb, self.SINR_dB, self.signal_strength_dB, self.interference_dB, self.noise_plus_interference_dB, self.used_prbs_per_user_per_bs, self.num_prbs_used_per_user = RC._()
@@ -551,12 +549,12 @@ class _main_:
                 print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs, reward= {}'.format(e, count_handovers, self.reward))
                 # LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
         #return self.mat_rho, self.mat_u_bs_dist, self.mat_u_bs_dist_pred, self.shannon, self.shannon_pred, self.mat_gain, self.mat_gain_pred, self.mat_power, self.mat_power_pred, self.mat_reward, self.mat_reward_pred, self.mat_satisfied_prb_constraint, self.mat_satisfied_prb_constraint_pred, self.mat_satisfied_power_constraint, self.mat_satisfied_power_constraint_pred, self.mat_satisfied_delay_constraint, self.mat_satisfied_delay_constraint_pred, self.mat_ssl_rate, self.mat_ssl_rate_pred, self.mat_ssl_delay, self.mat_ssl_delay_pred, self.mat_ssl, self.mat_ssl_pred, self.mat_episode_runtime, self.mat_rate, self.mat_rate_pred, self.monte_mat_delay_tot, self.monte_mat_delay_tot_pred, self.mat_used_prbs_per_user, self.mat_used_prbs_per_user_per_bs, self.mat_used_prbs_per_user_pred, self.mat_used_prbs_per_user_per_bs_pred, self.du_ru_adj_matrix, LC, self.mat_associator, self.loc_user
-        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers, self.mat_ssl_u_total
+        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers, self.mat_ssl_u_total, self.mat_reward_user
 
 
 # %%
 M = _main_(E, T)
-mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers, mat_ssl_u_total = M._()
+mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers, mat_ssl_u_total, mat_reward_user = M._()
 # mat_rho, mat_u_bs_dist, mat_u_bs_dist_pred, shannon, shannon_pred, mat_gain, mat_gain_pred, mat_power, mat_power_pred, mat_reward, mat_reward_pred, mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred, mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred, mat_ssl_rate, mat_ssl_rate_pred, mat_ssl_delay, mat_ssl_delay_pred, mat_ssl, mat_ssl_pred, mat_episode_runtime, mat_rate, mat_rate_pred, monte_mat_delay_tot, monte_mat_delay_tot_pred, mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix, LC, mat_associator, loc_user = M._()
 
 # %%%%%%%
@@ -564,7 +562,9 @@ mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_power, mat_reward, mat_satisfied_
 # save for later (use savez_compressed for compression)
 filename = f'O-RAN SAC, U={USER_NO}, PRB={PRB_NO}, BS={BS_NO}, E={E}, T={T}, VELOCITY={VELOCITY}, D_max={CONST_D_MAX}, R_min={CONST_R_MIN}.npz'
 np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shannon=shannon, mat_gain=mat_gain, mat_power=mat_power, mat_reward=mat_reward, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_power_constraint=mat_satisfied_power_constraint,
-                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay, mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers, mat_ssl_u_total=mat_ssl_u_total)
+                    mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, 
+                    monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay, 
+                    mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers, mat_ssl_u_total=mat_ssl_u_total, mat_reward_user=mat_reward_user)
 # np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, mat_u_bs_dist_pred=mat_u_bs_dist_pred, shannon=shannon, shannon_pred=shannon_pred, mat_gain=mat_gain, mat_gain_pred=mat_gain_pred, mat_power=mat_power, mat_power_pred=mat_power_pred, mat_reward=mat_reward, mat_reward_pred=mat_reward_pred, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_prb_constraint_pred=mat_satisfied_prb_constraint_pred, mat_satisfied_power_constraint=mat_satisfied_power_constraint, mat_satisfied_power_constraint_pred=mat_satisfied_power_constraint_pred,
 #                     mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_delay_constraint_pred=mat_satisfied_delay_constraint_pred, mat_ssl_rate=mat_ssl_rate, mat_ssl_rate_pred=mat_ssl_rate_pred, mat_ssl_delay=mat_ssl_delay, mat_ssl_delay_pred=mat_ssl_delay_pred, mat_ssl=mat_ssl, mat_ssl_pred=mat_ssl_pred, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, mat_rate_pred=mat_rate_pred, monte_mat_delay_tot=monte_mat_delay_tot, monte_mat_delay_tot_pred=monte_mat_delay_tot_pred, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_used_prbs_per_user_per_bs=mat_used_prbs_per_user_per_bs, mat_used_prbs_per_user_pred=mat_used_prbs_per_user_pred, mat_used_prbs_per_user_per_bs_pred=mat_used_prbs_per_user_per_bs_pred, du_ru_adj_matrix=du_ru_adj_matrix, mat_associator=mat_associator)
 
@@ -578,7 +578,7 @@ LC.visualize_ru_du_locations(du_ru_adj_matrix)
 
 # Plot the data using your custom plot function
 plot_graph("Runtime Duration",
-           [moving_average(1000*np.average(mat_episode_runtime, axis=1), window_size)],
+           [moving_average(1000*np.average(mat_episode_runtime, axis=0), window_size)],
            ['Average runtime duration: {:.2f} ms'.format(1000 * np.average(mat_episode_runtime))],
            ['blue'],
            ['solid'],
@@ -637,8 +637,7 @@ plot_graph("Runtime Duration",
 #            'Overall PRBs used in BS 4')
 #######################
 # Calculate averages over Monte Carlo runs and users
-avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(1,2))
-# avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(0,1))
+avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(0,1))
 # avg_prbs_per_user_pred = np.mean(mat_used_prbs_per_user_pred, axis=(0,1))
 
 # Plot the averages using your function
@@ -658,7 +657,7 @@ plot_graph('Avg PRBs used per user for SAC algorithm',
 #            'Average PRBs used per user')
 # Fairness for PRBs
 # Calculate PRB utilization for each user at each time step and for each MC run
-prb_utilization = np.sum(mat_rho, axis=(2, 1))  # Sum over PRBs and BSs
+prb_utilization = np.sum(mat_rho, axis=(0, 1))  # Sum over PRBs and BSs
 
 # Calculate proportional fairness score for each time step
 fairness_scores = np.zeros((E, T))
@@ -695,7 +694,7 @@ plot_graph("Jain's fairness index for PRB allocation",
 # mean_ep_rewardall = moving_average(mat_reward_average_over_m, window_size)
 # mean_ep_rewardall_pred = moving_average(mat_reward_average_over_m_pred, window_size)
 plot_graph("Mean episodic rewards",
-           [moving_average(np.average(mat_reward, axis=1), window_size)],
+           [moving_average(np.average(mat_reward, axis=0), window_size)],
            ['SAC'],
            ['blue'],
            ['solid'],
@@ -718,10 +717,10 @@ plot_graph("Mean episodic rewards",
 # mean_ep_rate_const = moving_average(np.average(mat_satisfied_rate_constraint, axis=1), window_size)
 
 plot_graph("Constraint Satisfaction",
-           [moving_average(np.average(mat_satisfied_prb_constraint, axis=1), window_size), 
-            moving_average(np.average(mat_satisfied_power_constraint, axis=1), window_size),
-            moving_average(np.average(mat_satisfied_delay_constraint, axis=1), window_size),
-            moving_average(np.average(mat_satisfied_rate_constraint, axis=1), window_size)],
+           [moving_average(np.average(mat_satisfied_prb_constraint, axis=0), window_size), 
+            moving_average(np.average(mat_satisfied_power_constraint, axis=0), window_size),
+            moving_average(np.average(mat_satisfied_delay_constraint, axis=0), window_size),
+            moving_average(np.average(mat_satisfied_rate_constraint, axis=0), window_size)],
            ['PRB (SAC)',
             'Power (SAC)',
             'Delay (SAC)',
@@ -762,9 +761,9 @@ plot_graph("Constraint Satisfaction",
 #            "Episode",
 #            "SSL Metrics")
 plot_graph("SSL Metrics",
-           [moving_average(np.average(mat_ssl_rate, axis=1), window_size),
-            moving_average(np.average(mat_ssl_delay, axis=1), window_size),
-            moving_average(np.average(mat_ssl, axis=1), window_size)],
+           [moving_average(np.average(mat_ssl_rate, axis=0), window_size),
+            moving_average(np.average(mat_ssl_delay, axis=0), window_size),
+            moving_average(np.average(mat_ssl, axis=0), window_size)],
            ['Rate (SAC)',
             'Delay (SAC)',
             'SSL (SAC)'],
@@ -774,8 +773,7 @@ plot_graph("SSL Metrics",
            "SSL Metrics")
 # %%%%%Delay%%%%%%
 # Calculate mean delay over users for SAC
-mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=1)
-#mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=0)
+mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=0)
 # Calculate mean delay over users for SAC_pred
 # mean_delay_sac_pred = np.mean(np.mean(monte_mat_delay_tot_pred, axis=1), axis=0)
 
@@ -799,8 +797,7 @@ plot_graph("Comparison of Average E2E Delay (SAC)",
 #            "Timestep",
 #            "Average E2E Delay (ms)")
 #####################
-# mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=0)
-mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=1)
+mean_rate_sac = np.mean(np.mean(shannon, axis=1), axis=0)
 # mean_rate_sac_smoothed = moving_average(mean_rate_sac, window_size)
 plot_graph("Average Data Rate (SAC)",
            [moving_average(mean_rate_sac , window_size)],
@@ -811,7 +808,7 @@ plot_graph("Average Data Rate (SAC)",
            "Average Data Rate (Mbps)")
 
 #####################
-mean_power_sac = np.mean(np.mean(mat_power, axis=1), axis=1)
+mean_power_sac = np.mean(np.mean(mat_power, axis=1), axis=0)
 # mean_power_sac_smoothed = moving_average(mean_power_sac, window_size)
 plot_graph("Average of total allocated power to each user (SAC)",
            [moving_average(mean_power_sac , window_size)],
@@ -822,10 +819,10 @@ plot_graph("Average of total allocated power to each user (SAC)",
            "Average of total allocated power to each user (W)")
 
 ###
-average_rate = np.mean(shannon, axis=2)
+average_rate = np.mean(shannon, axis=0)
 
 for user_idx in range(USER_NO):
-    plt.plot(moving_average(range(E), window_size), moving_average(average_rate[:,user_idx], window_size), label=f'User {user_idx+1}')
+    plt.plot(moving_average(range(T), window_size), moving_average(average_rate[user_idx,:], window_size), label=f'User {user_idx+1}')
 plt.xlabel('E')
 plt.ylabel('Rate (Mbps)')
 plt.title('Average rate for individual users')
@@ -833,10 +830,10 @@ plt.legend()
 plt.show()
 
 ###
-average_rate_ssl_u = np.mean(mat_fittingness_u_rate, axis=2)
+average_rate_ssl_u = np.mean(mat_fittingness_u_rate, axis=0)
 
 for user_idx in range(USER_NO):
-    plt.plot(moving_average(range(E), window_size), moving_average(average_rate_ssl_u[:,user_idx], window_size), label=f'User {user_idx+1}')
+    plt.plot(moving_average(range(T), window_size), moving_average(average_rate_ssl_u[user_idx,:], window_size), label=f'User {user_idx+1}')
 plt.xlabel('E')
 plt.ylabel('SSL_rate_u')
 plt.title('Normalized rate satisfaction')
@@ -844,10 +841,10 @@ plt.legend()
 plt.show()
 
 ###
-average_delay_ssl_u = np.mean(mat_fittingness_u_delay, axis=2)
+average_delay_ssl_u = np.mean(mat_fittingness_u_delay, axis=0)
 
 for user_idx in range(USER_NO):
-    plt.plot(moving_average(range(E), window_size), moving_average(average_delay_ssl_u[:,user_idx], window_size), label=f'User {user_idx+1}')
+    plt.plot(moving_average(range(T), window_size), moving_average(average_delay_ssl_u[user_idx,:], window_size), label=f'User {user_idx+1}')
 plt.xlabel('E')
 plt.ylabel('SSL_delay_u')
 plt.title('Normalized delay satisfaction')
