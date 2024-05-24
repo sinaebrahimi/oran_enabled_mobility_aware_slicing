@@ -45,17 +45,18 @@ class Mapping:
         self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
 
+
         # Reshape to ensure it's a column vector if it's not already
         temp_chi_vector = self.temp_chi_reshaped.reshape(self.USER_NO, 1)
 
         # Combine normalized action values with channel gains
         # Broadcasting temp_chi_reshaped across all BS
-        weighted_preferences = temp_chi_vector * self.H_b.T
+        weighted_preferences = temp_chi_vector * self.H_b.T # 
 
         # Choose the BS with the highest weighted preference for each user
-        self.chi_num = np.argmax(weighted_preferences, axis=1)
+        self.chi_num = np.argmax(weighted_preferences, axis=1) # chi_num[u]=2
 
-        self.chi[np.arange(self.USER_NO), self.chi_num] = 1
+        self.chi[np.arange(self.USER_NO), self.chi_num] = 1 # USER_NO * BS_NO
 
 
         # Count users per base station and check for overloading
@@ -208,10 +209,6 @@ class Mapping:
         self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid 0 values for power
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.USER_NO])
 
-        # Normalize action values to represent proportion of power each user should get
-        #normalized_actions = self.temp_p_reshaped / np.sum(self.temp_p_reshaped)
-        #self.scale = self.MAX_POWER / self.PRB_NO # This ensures that we'll never exceed MAX_POWER in sum_p
-
         for b in range(self.BS_NO):
             users_connected = np.where(self.chi_num == b)[0]
             if len(users_connected) > 0:
@@ -235,15 +232,7 @@ class Mapping:
                         if self.rho[b, k, u] == 1:
                             self.p[b, k, u] = adjusted_power[i] / np.sum(self.rho[b, :, u])
 
-        # Ensure no user gets zero power unless their initial allocation was zero
-        # for u in range(self.USER_NO):
-        #     if self.temp_p_reshaped[u] > 0 and self.p_num[u] == 0:
-        #         # Redistribute a small amount of power to this user
-        #         for b in range(self.BS_NO):
-        #             if self.chi_num[u] == b:
-        #                 prbs_allocated = np.where(self.rho[b, :, u] == 1)[0]
-        #                 if len(prbs_allocated) > 0:
-        #                     self.p[b, prbs_allocated[0], u] = min(self.temp_p_reshaped[u], self.MAX_POWER / self.USER_NO)
+        
         return self.temp_p_reshaped, self.p_num, self.p
     
     def ran_power_allocation_old(self):
@@ -269,7 +258,20 @@ class Mapping:
                 for u in range(self.USER_NO):
                     if self.rho[b, k, u] == 1: #chi is already checked for rho!
                         self.p[b, k, u] = self.p_num[u]
+        # Ensure no user gets zero power unless their initial allocation was zero
+        # for u in range(self.USER_NO):
+        #     if self.temp_p_reshaped[u] > 0 and self.p_num[u] == 0:
+        #         # Redistribute a small amount of power to this user
+        #         for b in range(self.BS_NO):
+        #             if self.chi_num[u] == b:
+        #                 prbs_allocated = np.where(self.rho[b, :, u] == 1)[0]
+        #                 if len(prbs_allocated) > 0:
+        #                     self.p[b, prbs_allocated[0], u] = min(self.temp_p_reshaped[u], self.MAX_POWER / self.USER_NO)
 
+
+        # Normalize action values to represent proportion of power each user should get
+        #normalized_actions = self.temp_p_reshaped / np.sum(self.temp_p_reshaped)
+        #self.scale = self.MAX_POWER / self.PRB_NO # This ensures that we'll never exceed MAX_POWER in sum_p
         return self.temp_p_reshaped, self.p_num, self.p
 
 

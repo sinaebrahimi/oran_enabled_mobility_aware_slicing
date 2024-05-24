@@ -5,9 +5,9 @@ import numpy as np
 from buffer import ReplayBuffer
 from networks import ActorNetwork, CriticNetwork, ValueNetwork
 
-class Agent(): # tau=0.001
+class Agent(): # tau=0.001 # 0.005, reward_scale = 2
     def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.005,
-            layer1_size = 500, layer2_size = 256, batch_size = 32, reward_scale = 1): #input_dims (state size)
+            layer1_size = 500, layer2_size = 256, batch_size = 32, reward_scale = 2): #input_dims (state size)
         self.gamma = 0.99 # 99 #0.8 # 0.5 to 0.8###if it is near 1, it'd be very dependent to the past; therefore, not very adaptable to changes #0.8 ####CHANGE TO 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
         self.tau = tau # tau # 0.001 in the paper #was 0.5 in orig code
         self.pointer = 0
