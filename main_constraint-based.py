@@ -13,7 +13,7 @@ from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
 np.random.seed(1372) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
 # ------Loading the parameters-----------
 
 # config_file = 'sac-lstm/config_lstm.yaml' #
@@ -182,7 +182,7 @@ class _main_:
                     self.noise = self.noise * self.var
                     self.action = self.agent.choose_action(self.state)  # Choosing the action
                     self.action += self.noise
-                    self.action = np.clip(self.action, 0, 1) 
+                    self.action = np.clip(self.action, -1, 1) 
 
                     MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                     self.chi_compressed, self.chi_num, self.chi = MA.user_association()
@@ -213,7 +213,7 @@ class _main_:
                         self.noise = self.noise * self.var
                         self.action = self.agent.choose_action(self.state)  # Choosing the action
                         self.action += self.noise
-                        self.action = np.clip(self.action, 0, 1) 
+                        self.action = np.clip(self.action, -1, 1) 
 
                         MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                         self.chi_compressed, self.chi_num, self.chi = MA.user_association()
@@ -408,7 +408,7 @@ class _main_:
             # in m loop
             if count_handovers>0:
                 print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs, reward= {}'.format(e, count_handovers, self.reward))
-            if e%100 == 0:
+            if e%1 == 0: #%100
                 #print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs, reward= {}'.format(e, count_handovers, self.reward))
                 LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
         return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_p, self.mat_sum_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers, self.mat_ssl_u_total, self.mat_reward_user, self.logarithmic_reward, self.mat_no_of_satisfied_delay_and_rate_constraint
@@ -460,6 +460,25 @@ plot_graph('Avg PRBs used per user for SAC algorithm',
            'T',
            'Average PRBs used per user')
 
+
+group_size = T//10
+num_groups = 10
+avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(1))
+temp_prb = avg_prbs_per_user[:,:-1]
+avg_prbs_per_user_box = np.average(temp_prb, axis=0)
+
+grouped_data = [avg_prbs_per_user_box[i * group_size:(i + 1) * group_size]for i in range(num_groups)]
+
+# Create a box plot for the grouped rewards
+
+plt.figure(figsize=(10, 6))
+plt.boxplot(grouped_data, vert=True, patch_artist=True)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Avg number of PRBs per user')
+# plt.title('Box Plot of PRB allocations Grouped by 50 Episodes')
+plt.xticks(ticks=np.arange(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
 # Fairness for PRBs
 # Calculate PRB utilization for each user at each time step and for each MC run
 # prb_utilization = np.sum(mat_rho, axis=(0, 1))  # Sum over PRBs and BSs
@@ -509,6 +528,20 @@ plot_graph("Mean episodic rewards",
            "Episode",
            "Mean episodic rewards")
 
+mat_reward_boxplot = np.average(mat_reward, axis=0)
+
+
+data = [mat_reward_boxplot[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Reward')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
 plot_graph("Constraint Satisfaction",
            [moving_average(np.average(mat_satisfied_delay_constraint, axis=0), window_size),
             moving_average(np.average(mat_satisfied_rate_constraint, axis=0), window_size)],
@@ -518,6 +551,33 @@ plot_graph("Constraint Satisfaction",
            ['solid', 'solid'],
            "Episode",
            "Constraint Satisfaction Rate")
+
+
+temp_delay = mat_satisfied_delay_constraint[:, :-1]
+mat_satisfied_delay_constraint_box = np.average(temp_delay, axis=0)
+data = [mat_satisfied_delay_constraint_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Constraint Satisfaction Rate (Delay)')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
+temp_rate =mat_satisfied_rate_constraint[:, :-1]
+mat_satisfied_rate_constraint_box = np.average(temp_rate, axis=0)
+data = [mat_satisfied_rate_constraint_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Constraint Satisfaction Rate (bitrate)')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
 
 # %%%%%SSL%%%%%%
 plot_graph("SSL Metrics",
@@ -531,6 +591,46 @@ plot_graph("SSL Metrics",
            ['solid', 'solid', 'solid'],
            "Episode",
            "SSL Metrics")
+
+temp_delay = mat_ssl_delay[:, :-1]
+mat_ssl_delay_box = np.average(temp_delay, axis=0)
+data = [mat_ssl_delay_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Delay SSL')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
+temp_rate =mat_ssl_rate[:, :-1]
+mat_ssl_rate_box = np.average(temp_rate, axis=0)
+data = [mat_ssl_rate_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Bitrate SSL')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
+
+temp_ssl =mat_ssl[:, :-1]
+mat_ssl_box = np.average(temp_ssl, axis=0)
+data = [mat_ssl_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Total SSL')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
 # %%%%%Delay%%%%%%
 # Calculate mean delay over users for SAC
 mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=0)

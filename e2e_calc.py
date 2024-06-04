@@ -40,7 +40,7 @@ class Mapping:
     def user_association(self):
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
-        self.temp_chi = (self.action[self.e0:self.e1]) #transition from [-1,1] to [0,1]
+        self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
         # self.temp_chi = np.clip(self.temp_chi, 0, 1)
         self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
@@ -211,7 +211,7 @@ class Mapping:
 
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e2 = self.e1 + self.USER_NO
-        self.temp_rho = (self.action[self.e1:self.e2])
+        self.temp_rho = (self.action[self.e1:self.e2]+1)/2
         self.temp_rho = np.clip(self.temp_rho, 0.1, 1)
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
 
@@ -409,7 +409,7 @@ class Mapping:
     
     def ran_power_allocation(self):
         self.e3 = self.e2 + self.USER_NO
-        self.temp_p = (self.action[self.e2:self.e3]) ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
         self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid 0 values for power
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.USER_NO])
 

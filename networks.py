@@ -113,7 +113,6 @@ class ActorNetwork(nn.Module):
         prob = F.relu(prob)
         prob = self.fc2(prob)
         # prob = F.tanh(prob)
-        # prob = F.softmax(prob)        
         prob = F.sigmoid(prob)
         mu = self.mu(prob)
         sigma = self.sigma(prob)
@@ -132,8 +131,7 @@ class ActorNetwork(nn.Module):
             actions = probabilities.sample()
 
         # action = T.tanh(actions) * T.tensor(self.max_action).to(self.device)
-        action = T.sigmoid(actions) * T.tensor(self.max_action).to(self.device)
-        # action = F.softmax(actions) * T.tensor(self.max_action).to(self.device)
+        action = T.sigmoid(actions) * T.tensor(self.max_action).to(self.device) ###F.softmax(actions)
         log_probs = probabilities.log_prob(actions)
         log_probs -= T.log(1 - action.pow(2) + self.reparam_noise) # entropy
         log_probs = log_probs.sum(1, keepdim = True)
