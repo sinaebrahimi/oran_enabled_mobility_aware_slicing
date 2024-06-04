@@ -39,55 +39,28 @@ class Mapping:
 #%% RAN mapping:
     def user_association(self):
         self.e0 = 0
-        self.e1 = self.USER_NO # * self.BS_NO
-        self.temp_chi = (self.action[self.e0:self.e1]) #transition from [-1,1] to [0,1]
+        self.e1 = self.USER_NO * self.BS_NO
+        # self.e1 = self.USER_NO # * self.BS_NO
+        self.temp_chi = (self.action[self.e0:self.e1])
+        # self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
         # self.temp_chi = np.clip(self.temp_chi, 0, 1)
-        self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
-        self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
+        self.temp_chi = np.clip(self.temp_chi, 0, 1) # to avoid negative values # to make sure that the values are between 0 and 1
+        self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO, self.BS_NO])
 
-        # Reshape to ensure it's a column vector if it's not already
-        temp_chi_vector = self.temp_chi_reshaped.reshape(self.USER_NO, 1)
+        connected_users = set()  # Keep track of users already connected
 
-        # Combine normalized action values with channel gains
-        # Broadcasting temp_chi_reshaped across all BS
-        weighted_preferences = temp_chi_vector * self.H_b.T
-
-        # Choose the BS with the highest weighted preference for each user
-        self.chi_num = np.argmax(weighted_preferences, axis=1)
-
-        self.chi[np.arange(self.USER_NO), self.chi_num] = 1
-
-
-        # Count users per base station and check for overloading
-        user_counts = np.sum(self.chi, axis=0)
-        max_allowed_users_per_bs = np.ceil(self.USER_NO / self.BS_NO)
-        
-        # Reallocate users from overloaded BS
-        for b in range(self.BS_NO):
-            if user_counts[b] > max_allowed_users_per_bs:
-                # Find users currently assigned to this overloaded BS
-                overloaded_users = np.where(self.chi[:, b] == 1)[0]
-                # Sort these users based on their channel gains to b, ascending order
-                overloaded_users = overloaded_users[np.argsort(self.H_b[b, overloaded_users])]
-                for u in overloaded_users:
-                    if user_counts[b] <= max_allowed_users_per_bs:
-                        break
-                    # Attempt to reallocate to next highest preference not overloaded
-                    other_bs_preferences = weighted_preferences[u, :]
-                    # Set current overloaded BS preference to very low to avoid reselection
-                    other_bs_preferences[b] = -np.inf
-                    new_bs = np.argmax(other_bs_preferences) # choosing the second best BS for the user
-                    if user_counts[new_bs] < max_allowed_users_per_bs:
-                        # Reassign user u from b to new_bs
-                        self.chi[u, b] = 0
-                        self.chi[u, new_bs] = 1
-                        user_counts[b] -= 1
-                        user_counts[new_bs] += 1
-        
-        # Update self.chi_num to reflect the final user-BS associations
+        for u in range(self.USER_NO):
+            for b in range(self.BS_NO):
+                # Check if user u is already connected to a base station
+                if u in connected_users:
+                    continue
+                # If a user is not connected to any BS, connect them to the BS with the highest connection probability
+                max_prob_bs = np.argmax(self.temp_chi_reshaped[u, :])
+                self.chi[u, max_prob_bs] = 1
+                connected_users.add(u)  # Mark user u as connected to a base station
         self.chi_num = np.argmax(self.chi, axis=1)
+        return self.chi_num, self.chi
 
-        return self.temp_chi_reshaped, self.chi_num, self.chi
     def user_association_heuristic(self):
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
@@ -210,58 +183,29 @@ class Mapping:
     
 
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
-        self.e2 = self.e1 + self.USER_NO
+        # self.e2 = self.e1 + self.USER_NO
+        self.e2 = self.e1 + self.BS_NO * self.PRB_NO * self.USER_NO
+        # self.temp_rho = (self.action[self.e1:self.e2]+1)/2 
         self.temp_rho = (self.action[self.e1:self.e2])
-        self.temp_rho = np.clip(self.temp_rho, 0.1, 1)
-        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
+        self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.BS_NO, self.PRB_NO, self.USER_NO])
 
-        # Normalize action values to represent proportion of PRBs each user should get
-        self.normalized_actions = self.temp_rho_reshaped / np.sum(self.temp_rho_reshaped)
-
-        for b in range(self.BS_NO):
-            users_connected_to_b = np.where(self.chi_num == b)[0] # set of users connected to b
-            # Allocate PRBs based on rate requirements
-            prb_allocation_weights = self.mat_specs[users_connected_to_b, 1]
-            prb_allocation_weights /= np.sum(prb_allocation_weights)  # Normalize weights
-            prbs_allocated = np.floor(self.normalized_actions[users_connected_to_b] * self.PRB_NO)
-
-            if len(users_connected_to_b) > 0:
-
-                # Allocate PRBs to users
-                for i, u in enumerate(users_connected_to_b):
-                    num_prbs_to_allocate = int(prbs_allocated[i])
-                    available_prbs = np.where(np.sum(self.rho[b, :, :], axis=1) == 0)[0]  # Find available PRBs
-                    if len(available_prbs) < num_prbs_to_allocate:
-                        num_prbs_to_allocate = len(available_prbs)
-                    self.rho[b, available_prbs[:num_prbs_to_allocate], u] = 1
-
-                # Distribute remaining PRBs among users fairly
-                remaining_prbs = self.PRB_NO - np.sum(self.rho[b,:,:])
-                if remaining_prbs > 0:
-                    user_priorities = self.mat_specs[users_connected_to_b, 1]
-                    user_priorities /= np.sum(user_priorities)
-                    num_prbs_per_user = np.floor(user_priorities * remaining_prbs).astype(int)
-                    for i, u in enumerate(users_connected_to_b):
-                        available_prbs = np.where(np.sum(self.rho[b, :, :], axis=1) == 0)[0]  # Find available PRBs
-                        if len(available_prbs) < num_prbs_per_user[i]:
-                            num_prbs_per_user[i] = len(available_prbs)
-                        self.rho[b, available_prbs[:num_prbs_per_user[i]], u] = 1
-
-
-        unallocated_PRBs = np.zeros([self.USER_NO])  # flag to store the values of PRBs we failed to give to users
+        self.done_user_prb_allocation = 0
+        cnt_u = 0 
 
         for u in range(self.USER_NO):
-            self.rho_num[u] = np.sum(self.rho[:,:,u]).astype(int)
+            for b in range(self.BS_NO):
+                if self.chi[u,b] == 1:
+                    for k in range(self.PRB_NO):
+                        if np.sum(self.rho[b, k, :]) == 0: # is the PRB allocated to another user or not?
+                            if self.temp_rho_reshaped[b, k, u] >= 0.5: # binarizing the action for rho
+                                self.rho[b, k, u] = 1
+            if np.sum(self.rho[:, :, u]) > 0:
+                cnt_u += 1
 
-        # for b in range(self.BS_NO):
-        #     users_connected_to_b = np.where(self.chi_num == b)[0]
-        #     if len(users_connected_to_b) > 0:
-        #         prbs_per_user = self.PRB_NO // len(users_connected_to_b)
-        #         for i, u in enumerate(users_connected_to_b):
-        #             self.rho[b, i * prbs_per_user:(i + 1) * prbs_per_user, u] = 1
-        #rho_num and unallocated_PRBs are not used in the code
-        return self.temp_rho_reshaped, self.rho_num, self.rho, unallocated_PRBs    
-    
+        if cnt_u == self.USER_NO:
+            self.done_user_prb_allocation = 1
+        return self.done_user_prb_allocation, self.rho, cnt_u
+
     def ran_prb_allocation_heuristic(self):
         self.e2 = self.e1 + self.USER_NO
         self.temp_rho_reshaped = np.zeros([self.USER_NO])
@@ -408,52 +352,32 @@ class Mapping:
         return self.temp_p_reshaped, self.p_num, self.p    
     
     def ran_power_allocation(self):
-        self.e3 = self.e2 + self.USER_NO
-        self.temp_p = (self.action[self.e2:self.e3]) ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.e3 = self.e2 + self.BS_NO * self.PRB_NO * self.USER_NO
+        self.temp_p = (self.action[self.e2:self.e3])
+        # self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
         self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid 0 values for power
-        self.temp_p_reshaped = np.reshape(self.temp_p, [self.USER_NO])
+        self.temp_p_reshaped = np.reshape(self.temp_p, [self.BS_NO, self.PRB_NO, self.USER_NO])
 
-        # Normalize action values to represent proportion of power each user should get
-        #normalized_actions = self.temp_p_reshaped / np.sum(self.temp_p_reshaped)
-        #self.scale = self.MAX_POWER / self.PRB_NO # This ensures that we'll never exceed MAX_POWER in sum_p
+        self.scale = self.MAX_POWER / self.PRB_NO
+        self.done_user_power_allocation = 0
+        cnt_u = 0
 
-        for b in range(self.BS_NO):
-            users_connected = np.where(self.chi_num == b)[0]
-            if len(users_connected) > 0:
-                # Get the initial power allocations for these users
-                temp_power_allocations = self.temp_p_reshaped[users_connected]
-
-                normalized_power = temp_power_allocations / np.sum(temp_power_allocations)
-                # Get the rate requirements for these users
-                rate_requirements = self.mat_specs[users_connected,1]
-                fairness_weights = rate_requirements / np.sum(rate_requirements)
-
-                adjusted_power = normalized_power * fairness_weights
-
-                # Ensure the total power does not exceed MAX_POWER of the BS
-                adjusted_power = adjusted_power / np.sum(adjusted_power) * self.MAX_POWER
-
-                self.p_num[users_connected] = adjusted_power
-
-                for k in range(self.PRB_NO):
-                    for i, u in enumerate(users_connected):
-                        if self.rho[b, k, u] == 1:
-                            self.p[b, k, u] = adjusted_power[i] / np.sum(self.rho[b, :, u])
-
-        
-        # Ensure no user gets zero power unless their initial allocation was zero
         for u in range(self.USER_NO):
-            if self.temp_p_reshaped[u] > 0 and self.p_num[u] == 0:
-                # Redistribute a small amount of power to this user
-                for b in range(self.BS_NO):
-                    if self.chi_num[u] == b:
-                        prbs_allocated = np.where(self.rho[b, :, u] == 1)[0]
-                        if len(prbs_allocated) > 0:
-                            self.p[b, prbs_allocated[0], u] = min(self.temp_p_reshaped[u], self.MAX_POWER / self.USER_NO)
-        
-        if np.sum(self.p) == 0:
-            print("DEBUG POWER 0")
-        return self.temp_p_reshaped, self.p_num, self.p
+            for b in range(self.BS_NO):
+                if self.chi[u, b] == 1:
+                    for k in range(self.PRB_NO):
+                        if (self.rho[b, k, u]) == 1:
+                            if self.remained_power[b] - (self.scale * self.temp_p_reshaped[b, k, u]) > 0:
+                                self.p[b, k, u] = self.scale * self.temp_p_reshaped[b, k, u]
+                                self.remained_power[b] -= self.p[b, k, u]
+
+            if np.sum(self.p[:, :, u]) > 0:
+                cnt_u += 1
+
+        if cnt_u == self.USER_NO:
+            self.done_user_power_allocation = 1
+
+        return self.done_user_power_allocation, self.p, cnt_u
     
     def ran_power_allocation_old(self):
         self.e3 = self.e2 + self.USER_NO
@@ -615,21 +539,21 @@ class Delay:
 
 # %%
 class StateCalculation: # TO BE COMPLETED
-    def __init__(self, H, mat_ssl_u_total, mat_chi_compressed, mat_rho_compressed, mat_p_compressed):
-        self.H = H # USER_NO * BS_NO *  PRB_NO
+    def __init__(self, H, mat_ssl_u_total, mat_chi, mat_rho, mat_p):
+        self.H = H # USER_NO * BS_NO
         self.mat_ssl_u_total = mat_ssl_u_total
-        self.mat_chi_compressed = mat_chi_compressed
-        self.mat_rho_compressed = mat_rho_compressed
-        self.mat_p_compressed = mat_p_compressed
+        self.mat_chi = mat_chi
+        self.mat_rho = mat_rho
+        self.mat_p = mat_p
         #to add other states
         # self.mat_specs = mat_specs # s3 = 4 * USER_NO # includes 0: selected slice, 1: min rate, 2: tolerable delay, 3: packet size
 
     def _(self):
-        self.s1 = self.H.size # b*k*u
+        self.s1 = self.H.size # b*u
         self.s2 = self.s1 + self.mat_ssl_u_total.size
-        self.s3 = self.s2 + self.mat_chi_compressed.size
-        self.s4 = self.s3 + self.mat_rho_compressed.size
-        self.s5 = self.s4 + self.mat_p_compressed.size
+        self.s3 = self.s2 + self.mat_chi.size
+        self.s4 = self.s3 + self.mat_rho.size
+        self.s5 = self.s4 + self.mat_p.size
         self.states_no = self.s5
         #self.H.size + self.mat_ssl_u_rate.size + self.mat_ssl_u_delay.size + self.mat_chi_compressed.size + self.mat_rho_compressed.size + self.mat_p_compressed.size
         self.state = np.zeros([self.states_no])
@@ -637,9 +561,9 @@ class StateCalculation: # TO BE COMPLETED
         # self.loc_users_reshaped = np.reshape(self.loc_users_t, [self.loc_users_t.size])
         self.H_reshaped = np.reshape(self.H, [self.H.size])
         self.mat_ssl_u_total_reshaped = np.reshape(self.mat_ssl_u_total, [self.mat_ssl_u_total.size])
-        self.mat_chi_compressed_reshaped = np.reshape(self.mat_chi_compressed, [self.mat_chi_compressed.size])
-        self.mat_rho_compressed_reshaped = np.reshape(self.mat_rho_compressed, [self.mat_rho_compressed.size])
-        self.mat_p_compressed_reshaped = np.reshape(self.mat_p_compressed, [self.mat_p_compressed.size])
+        self.mat_chi_compressed_reshaped = np.reshape(self.mat_chi, [self.mat_chi.size])
+        self.mat_rho_compressed_reshaped = np.reshape(self.mat_rho, [self.mat_rho.size])
+        self.mat_p_compressed_reshaped = np.reshape(self.mat_p, [self.mat_p.size])
 
         # H
         self.state[0:self.s1] = (self.H_reshaped)/(np.max(self.H_reshaped)) # Normalizing the value for the neural network (avoiding errors)

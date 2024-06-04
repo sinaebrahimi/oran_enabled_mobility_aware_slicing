@@ -5,10 +5,10 @@ import numpy as np
 from buffer import ReplayBuffer
 from networks import ActorNetwork, CriticNetwork, ValueNetwork
 
-class Agent(): # tau=0.001, batch_size=32
+class Agent(): # tau=0.001 # 0.005, reward_scale = 2
     def __init__(self, alpha, beta, n_actions, input_dims, tau = 0.005,
-            layer1_size = 500, layer2_size = 256, batch_size = 256, reward_scale = 0.2): #input_dims (state size)
-        self.gamma = 0.99 # 99 #0.8 # 0.5 to 0.8###if it is near 1, it'd be very dependent to the past; therefore, not very adaptable to changes #0.8 ####CHANGE TO 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
+            layer1_size = 500, layer2_size = 256, batch_size = 32, reward_scale = 10): #input_dims (state size)
+        self.gamma = 0.5 # 99 #0.8 # 0.5 to 0.8###if it is near 1, it'd be very dependent to the past; therefore, not very adaptable to changes #0.8 ####CHANGE TO 0.8 # 0.99 #0.8 in the TNSM22 paper # was 0.7 in orig code
         self.tau = tau # tau # 0.001 in the paper #was 0.5 in orig code
         self.pointer = 0
         self.max_size = 200000 #40000 #12000 # should be larger than T (episode number) # formerly 1000 in orig code
@@ -27,14 +27,13 @@ class Agent(): # tau=0.001, batch_size=32
 
         self.scale = reward_scale
         self.update_network_parameters(self.tau)  # self.update_network_parameters(tau = 1)
-        
 
     def choose_action(self, observation):
-        # state = T.Tensor([observation]).to(self.actor.device)
-        state = T.Tensor(observation).to(self.actor.device).unsqueeze(0).unsqueeze(0)  # Add batch and sequence dimensions
-        actions, _ = self.actor.sample_normal(state, reparameterize=False)
+        state = T.Tensor([observation]).to(self.actor.device)
+        actions, _ = self.actor.sample_normal(state, reparameterize = False)
+
         return actions.cpu().detach().numpy()[0]
-    
+
     def memorize(self, state, action, reward, new_state):
         self.memory.store_transition(state, action, reward, new_state) # can put 0.2 or 2 to multiply to reward for reward scaling
         self.pointer += 1
@@ -78,19 +77,12 @@ class Agent(): # tau=0.001, batch_size=32
 
         state, action, reward, new_state = \
                 self.memory.sample_buffer(self.batch_size)
-        
-        
-    
 
         reward = T.tensor(reward, dtype = T.float).to(self.actor.device)
         # done = T.tensor(done).to(self.actor.device)
         state_ = T.tensor(new_state, dtype = T.float).to(self.actor.device)
         state = T.tensor(state, dtype = T.float).to(self.actor.device)
-        
         action = T.tensor(action, dtype = T.float).to(self.actor.device)
-
-        state = state.unsqueeze(1)  # Add sequence dimension: [batch_size, 1, feature_size]
-        state_ = state_.unsqueeze(1)  # Same for next_state
 
         value = self.value(state).view(-1)
         value_ = self.target_value(state_).view(-1)

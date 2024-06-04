@@ -13,7 +13,7 @@ from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
 np.random.seed(1372) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
 # ------Loading the parameters-----------
 
 # config_file = 'sac-lstm/config_lstm.yaml' #
@@ -111,15 +111,20 @@ class _main_:
         self.mat_p_compressed = np.zeros((E, USER_NO, T))
         self.mat_count_handovers = np.zeros((E, USER_NO))
         self.monte_mat_delay_tot = np.zeros([E, USER_NO, T])
-        # ----------obtaining the number of actions--------------
-        # self.e1 = USER_NO * BS_NO # user_association()
-        # self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
-        # self.e3 = self.e2 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
-        self.num_actions = 3 * USER_NO # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
+        # # ----------obtaining the number of actions--------------
+        # # self.e1 = USER_NO * BS_NO # user_association()
+        # # self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
+        # # self.e3 = self.e2 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
+        # self.num_actions = 3 * USER_NO # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
+        self.e1 = USER_NO * BS_NO # user_association()
+        self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
+        self.e3 = self.e2 + BS_NO * PRB_NO * USER_NO # ran_power_allocation()
+        self.num_actions = self.e3 # assuming that the user_association is conducted using a heuristic algorithm based on min_distance in user_location(self, t, loc_user)
         # ---------------------------------------------------------e
         self.s1 = BS_NO * USER_NO # H_b would be the avg of channel gains of the PRBs between u and b ### # USER_NO * BS_NO * PRB_NO # channel gain matrix (b,k,u) of t+1 # self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO]) # defined in radio_calc.py -> user_location()
-        self.s2 = self.s1 + USER_NO # vector of ssl for rate and delay per user in t-1
-        self.s3 = self.s2 + 3 * USER_NO # vector of actions in t-1 (chi, rho, p)
+        self.s2 = self.s1 + USER_NO # vector of ssl per user in t-1
+        # self.s3 = self.s2 + 3 * USER_NO # vector of actions in t-1 (chi, rho, p)
+        self.s3 = self.s2 + self.num_actions
         self.state_size = self.s3
 
 
@@ -141,7 +146,6 @@ class _main_:
             # self.agent = Agent(ALPHA_ACT, BETA_ACT, self.num_actions, self.state_size)
             #maybe reset the LSTM as well
             count_handovers = 0
-            action_memory = np.zeros([T, self.num_actions])
 
             #FOR episodes! for RL
             # agent should remain the same for all episodes # don't initialize the agent
@@ -150,7 +154,7 @@ class _main_:
                 start_time = time.time()
                 self.tt = t + 1
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
-                self.reward = 0 # -1 # -100
+                self.reward = -1 # 0 # -1 # -100
                 self.mat_delay_tot = np.ones([USER_NO])
                 self.mat_rate = np.zeros([USER_NO])
                 # ----------------------------------------------- 
@@ -166,69 +170,29 @@ class _main_:
                 self.mat_gain[e, :, :, t] = self.H_b
                 #########
                 if t==0:
-                    SC = StateCalculation(self.H_b, np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]), np.zeros([USER_NO]))
+                    SC = StateCalculation(self.H_b, np.zeros([USER_NO]), np.zeros([USER_NO, BS_NO]), np.zeros([BS_NO, PRB_NO, USER_NO]), np.zeros([BS_NO, PRB_NO, USER_NO]))
                     self.state = SC._()
                 else:   
                     SC = StateCalculation(self.H_b, self.mat_ssl_u_total[e, :, t-1], 
-                                          self.mat_chi_compressed[e, :, t-1], self.mat_rho_compressed[e, :, t-1], self.mat_p_compressed[e, :, t-1])
+                                          self.mat_chi[e, :, :, t-1], self.mat_rho[e,:,:,:,t-1], self.mat_p[e, :, :, :, t-1] )
                     self.state = SC._()
                 self.mat_delay_tot = np.ones([USER_NO])
                 #self.mat_delay_tot_pred = np.ones([USER_NO])
                 self.mat_rate = np.zeros([USER_NO])
                 #self.mat_rate_pred = np.zeros([USER_NO])
-                if t==0:
-                    self.var = self.var * self.decay_var
-                    self.noise = np.random.randn(self.num_actions)
-                    self.noise = self.noise * self.var
-                    self.action = self.agent.choose_action(self.state)  # Choosing the action
-                    self.action += self.noise
-                    self.action = np.clip(self.action, 0, 1) 
-
-                    MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
-                    self.chi_compressed, self.chi_num, self.chi = MA.user_association()
-                    self.rho_compressed, self.rho_num, self.rho, self.unallocated_PRBs = MA.ran_prb_allocation() 
-                    self.p_compressed, self.p_num, self.p = MA.ran_power_allocation()
-                    if np.sum(self.p) ==0:
-                        print('DEBUG P 0')
-                else:
-                    if self.mat_satisfied_delay_constraint[e, t-1] == 1.0 and self.mat_satisfied_rate_constraint[e, t-1] == 1.0 and np.all(self.mat_fittingness_u_rate[e, :, t-1] >= 0.6):
-                        #duplicate actions
-                        print(style.MAGENTA + 'DUPLICATED! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.mat_reward[e, t-1]))
-                        self.action = action_memory[t-1, :]
-                        self.chi_compressed = self.mat_chi_compressed[e, :, t-1]
-                        self.chi_num = self.mat_b_connected_episodic[e, :, t-1]
-                        self.chi = self.mat_chi[e, :, :, t-1]
-
-                        self.rho_compressed = self.mat_rho_compressed[e, :, t-1]
-                        self.rho = self.mat_rho[e,:,:,:,t-1]
-
-                        self.p_compressed = self.mat_p_compressed[e, :, t-1]  
-                        self.p = self.mat_p[e,:,:,:,t-1]
-                        if np.sum(self.p) ==0:
-                            print('DEBUG P 0')
-                    else:
-                        # calculate actions.
-                        self.var = self.var * self.decay_var
-                        self.noise = np.random.randn(self.num_actions)
-                        self.noise = self.noise * self.var
-                        self.action = self.agent.choose_action(self.state)  # Choosing the action
-                        self.action += self.noise
-                        self.action = np.clip(self.action, 0, 1) 
-
-                        MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
-                        self.chi_compressed, self.chi_num, self.chi = MA.user_association()
-                        self.rho_compressed, self.rho_num, self.rho, self.unallocated_PRBs = MA.ran_prb_allocation() 
-                        self.p_compressed, self.p_num, self.p = MA.ran_power_allocation()
-                        if np.sum(self.p) ==0:
-                            print('DEBUG P 0')
                 # -----------------------------------------------------
-                
-                # self.action = np.clip(self.action, -1, 1)# because of tanh activation function
+                self.var = self.var * self.decay_var
+                self.noise = np.random.randn(self.num_actions)
+                self.noise = self.noise * self.var
+                self.action = self.agent.choose_action(self.state)  # Choosing the action
+                self.action += self.noise
+                # self.action = np.clip(self.action, -1, 1) # because of tanh activation function
+                self.action = np.clip(self.action, 0, 1)
                 # -------Current state calculation---------------------
                 #self.chi_compressed = np.zeros([USER_NO])
+                MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
                 #chi
-                # self.chi_compressed, self.chi_num, self.chi = MA.user_association() # it is turned to a heuristic!
-                self.mat_chi_compressed[e, :, t] = self.chi_compressed # between 0 and 1
+                self.chi_num, self.chi = MA.user_association() # it is turned to a heuristic!
                 self.mat_chi[e, :, :, t] = self.chi # binary variable for b, u
 
                 self.mat_b_connected_episodic[e, :, t] = self.chi_num
@@ -239,9 +203,9 @@ class _main_:
                             count_handovers += 1
                             self.mat_count_handovers[e, u] += 1
                 
-                # self.rho_compressed, self.rho_num, self.rho, self.unallocated_PRBs = MA.ran_prb_allocation() 
-                self.mat_rho_compressed[e, :, t] = self.rho_compressed
+                self.done_user_prb_allocation, self.rho, prb_cnt_u = MA.ran_prb_allocation() 
                 self.mat_rho[e,:,:,:,t] = self.rho
+                self.mat_satisfied_prb_constraint[e, t] = prb_cnt_u / USER_NO
 
                 PRB_utilization = np.zeros([BS_NO])
                 # Calculate PRB utilization for each base station
@@ -256,13 +220,13 @@ class _main_:
                             self.mat_used_prbs_per_user[e, :, t] = np.sum(self.rho[b, :, u])
                 
                 #p
-                # self.p_compressed, self.p_num, self.p = MA.ran_power_allocation()
-                self.mat_p[e,:,:,:,t] = self.p
-                self.mat_p_compressed[e, :, t] = self.p_compressed # between 0 and 1
+                self.done_user_power_allocation, self.p, power_cnt_u = MA.ran_power_allocation()
+                # self.mat_p_compressed[e, :, t] = self.p_compressed # between 0 and 1
+                self.mat_p[e, :, :, :, t] = self.p
 
                 for u in range(USER_NO):
                     self.mat_sum_power[e, u, t] = np.sum(self.p[:, :, u]) 
-
+                self.mat_satisfied_power_constraint[e, t] = power_cnt_u / USER_NO
                 #################
 
                 #########END OF ACTION ALLOCATION###############
@@ -332,6 +296,9 @@ class _main_:
                 self.mat_ssl_u_total[e, :, t] = np.clip(self.mat_ssl_u_total[e, :, t], 1e-10, 1.0) #ensuring that we do not have zero SSLs to avoid division by zero in the logarithmic function
                 self.mat_ssl[e, t] = np.clip(self.mat_ssl[e, t], 1e-10, 1.0)
 
+                
+                    # else:
+                    #     print('DEBUG ME')
 
                 # Logarithmic transformation of the geometric mean (SSL)
                                 # self.log_geometric_mean[e, t] = np.mean(np.log(self.mat_ssl_u_total[e, :, t]))
@@ -354,20 +321,19 @@ class _main_:
                 #     if cnt_rate_passed_u == USER_NO:
                 #         #maybe save these!
                 #         print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
-                self.reward += self.mat_ssl[e, t]
+                
+                if self.mat_ssl[e,t] >= 0.5:
+                    self.reward = self.mat_ssl[e, t]
+                    
+                
+                
+                
                 self.mat_reward[e, t] = self.reward
 
-                # if cnt_delay_passed_u == USER_NO:
-                #     if cnt_rate_passed_u == USER_NO:
-                #         # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
-                #         print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
-                    # else:
-                    #     print('DEBUG ME')
-
-                # if self.mat_satisfied_delay_constraint[e, t-1] == 1.0 and self.mat_satisfied_rate_constraint[e, t-1] == 1.0:
-                #     if self.mat_satisfied_rate_constraint[e, t] < 1:
-                #         print(style.CYAN + 'NOT MET! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.mat_reward[e, t-1]))
-
+                if cnt_delay_passed_u == USER_NO:
+                    if cnt_rate_passed_u == USER_NO:
+                        # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
+                        print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
 
                 # # ---------Next state calculation--------------
                 LC_next = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY,
@@ -378,11 +344,11 @@ class _main_:
                     for b in range(BS_NO):
                         self.H_b_new[b, u] = np.average(self.H_new[b, :, u])
                 # -----------------------------------------------------
-                SC = StateCalculation(self.H_b_new, self.mat_ssl_u_total[e, :, t], self.mat_chi_compressed[e, :, t], self.mat_rho_compressed[e, :, t], self.mat_p_compressed[e, :, t])
+                SC = StateCalculation(self.H_b_new, self.mat_ssl_u_total[e, :, t], self.mat_chi[e, :, :, t-1], 
+                                      self.mat_rho[e,:,:,:,t-1], self.mat_p[e, :, :, :, t-1] )
                 self.next_state = SC._()
                 self.next_state = self.next_state.astype('float16')
                 # -------------------------------------
-                action_memory[t, :] = self.action
                 self.agent.memorize(self.state, self.action,
                                     self.reward, self.next_state)
                 self.agent.replay()
@@ -510,12 +476,16 @@ plot_graph("Mean episodic rewards",
            "Mean episodic rewards")
 
 plot_graph("Constraint Satisfaction",
-           [moving_average(np.average(mat_satisfied_delay_constraint, axis=0), window_size),
-            moving_average(np.average(mat_satisfied_rate_constraint, axis=0), window_size)],
-           ['Delay (SAC)',
+           [np.average(mat_satisfied_prb_constraint, axis=0), 
+            np.average(mat_satisfied_power_constraint, axis=0),
+            np.average(mat_satisfied_delay_constraint, axis=0),
+            np.average(mat_satisfied_rate_constraint, axis=0)],
+           ['PRB (SAC)',
+            'Power (SAC)',
+            'Delay (SAC)',
             'Rate (SAC)'],
-           ['red', 'blue'],
-           ['solid', 'solid'],
+           ['red', 'blue', 'green', 'orange'],
+           ['solid', 'solid', 'solid', 'solid'],
            "Episode",
            "Constraint Satisfaction Rate")
 
@@ -533,7 +503,7 @@ plot_graph("SSL Metrics",
            "SSL Metrics")
 # %%%%%Delay%%%%%%
 # Calculate mean delay over users for SAC
-mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=0)
+mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=0), axis=1)
 # Plot the comparison graph
 plot_graph("Comparison of Average E2E Delay (SAC)",
            [moving_average(mean_delay_sac , window_size)],
@@ -580,7 +550,7 @@ plt.show()
 average_rate_ssl_u = np.mean(mat_fittingness_u_rate, axis=0)
 
 for user_idx in range(USER_NO):
-    plt.plot(moving_average(range(T), window_size), moving_average(average_rate_ssl_u[user_idx,:], window_size), label=f'User {user_idx+1}')
+    plt.plot(moving_average(range(T), window_size), moving_average(average_rate_ssl_u[ user_idx,:], window_size), label=f'User {user_idx+1}')
 plt.xlabel('E')
 plt.ylabel('SSL_rate_u')
 plt.title('Normalized rate satisfaction')
