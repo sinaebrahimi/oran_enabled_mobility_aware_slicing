@@ -13,7 +13,7 @@ from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
 np.random.seed(1372) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
+os.environ["CUDA_VISIBLE_DEVICES"] = "1" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
 # ------Loading the parameters-----------
 
 # config_file = 'sac-lstm/config_lstm.yaml' #
@@ -111,6 +111,7 @@ class _main_:
         self.mat_p_compressed = np.zeros((E, USER_NO, T))
         self.mat_count_handovers = np.zeros((E, USER_NO))
         self.monte_mat_delay_tot = np.zeros([E, USER_NO, T])
+        self.angle_historic = np.zeros([E, USER_NO, T])
         # # ----------obtaining the number of actions--------------
         # # self.e1 = USER_NO * BS_NO # user_association()
         # # self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
@@ -146,6 +147,7 @@ class _main_:
             # self.agent = Agent(ALPHA_ACT, BETA_ACT, self.num_actions, self.state_size)
             #maybe reset the LSTM as well
             count_handovers = 0
+            action_memory = np.zeros([T, self.num_actions])
 
             #FOR episodes! for RL
             # agent should remain the same for all episodes # don't initialize the agent
@@ -154,47 +156,83 @@ class _main_:
                 start_time = time.time()
                 self.tt = t + 1
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
-                self.reward = -1 # 0 # -1 # -100
+                self.reward = 0 # 0 # -1 # -100
                 self.mat_delay_tot = np.ones([USER_NO])
                 self.mat_rate = np.zeros([USER_NO])
                 # ----------------------------------------------- 
-                # User location generation               
-                if t == 0:
-                    self.loc_user = self.loc_user_init
-                self.loc_user, self.H, self.mat_distance = LC.user_location(t, self.loc_user, self.mat_bs_loc)
-
+                # User location generation     and states 
+                # 
                 self.H_b = np.zeros([BS_NO, USER_NO])
-                for u in range(USER_NO):
-                    for b in range(BS_NO):
-                        self.H_b[b, u] = np.average(self.H[b, :, u])
-                self.mat_gain[e, :, :, t] = self.H_b
-                #########
+                self.H_b_normalized = np.zeros([BS_NO, USER_NO])         
+
                 if t==0:
-                    SC = StateCalculation(self.H_b, np.zeros([USER_NO]), np.zeros([USER_NO, BS_NO]), np.zeros([BS_NO, PRB_NO, USER_NO]), np.zeros([BS_NO, PRB_NO, USER_NO]))
+                    self.loc_user = self.loc_user_init
+                    self.loc_user, self.H, self.mat_distance, self.angle = LC.user_location(t, self.loc_user, self.mat_bs_loc, np.zeros(USER_NO))
+                    self.angle_historic[e,:,t] = self.angle
+
+                    for u in range(USER_NO):
+                        for b in range(BS_NO):
+                            self.H_b[b, u] = np.average(self.H[b, :, u])
+                    
+                    min_val = np.min(self.H_b)
+                    max_val = np.max(self.H_b)
+
+                    # Perform min-max normalization
+                    self.H_b_normalized = (self.H_b - min_val) / (max_val - min_val)
+                    self.mat_gain[e, :, :, t] = self.H_b
+
+                    SC = StateCalculation(self.H_b_normalized, np.zeros([USER_NO]), np.zeros([USER_NO, BS_NO]), np.zeros([BS_NO, PRB_NO, USER_NO]), np.zeros([BS_NO, PRB_NO, USER_NO]))
                     self.state = SC._()
-                else:   
-                    SC = StateCalculation(self.H_b, self.mat_ssl_u_total[e, :, t-1], 
+                else: 
+                    self.loc_user = self.loc_users_new
+                    self.H = self.H_new
+                    self.mat_distance = self.mat_distance_new
+
+                    for u in range(USER_NO):
+                        for b in range(BS_NO):
+                            self.H_b[b, u] = np.average(self.H[b, :, u])
+                    
+                    min_val = np.min(self.H_b)
+                    max_val = np.max(self.H_b)
+
+                    # Perform min-max normalization
+                    self.H_b_normalized = (self.H_b - min_val) / (max_val - min_val)
+                    self.mat_gain[e, :, :, t] = self.H_b
+
+                    SC = StateCalculation(self.H_b_normalized, self.mat_ssl_u_total[e, :, t-1], 
                                           self.mat_chi[e, :, :, t-1], self.mat_rho[e,:,:,:,t-1], self.mat_p[e, :, :, :, t-1] )
                     self.state = SC._()
-                self.mat_delay_tot = np.ones([USER_NO])
-                #self.mat_delay_tot_pred = np.ones([USER_NO])
-                self.mat_rate = np.zeros([USER_NO])
-                #self.mat_rate_pred = np.zeros([USER_NO])
-                # -----------------------------------------------------
-                self.var = self.var * self.decay_var
-                self.noise = np.random.randn(self.num_actions)
-                self.noise = self.noise * self.var
-                self.action = self.agent.choose_action(self.state)  # Choosing the action
-                self.action += self.noise
-                # self.action = np.clip(self.action, -1, 1) # because of tanh activation function
-                self.action = np.clip(self.action, 0, 1)
-                # -------Current state calculation---------------------
-                #self.chi_compressed = np.zeros([USER_NO])
-                MA = Mapping(self.action, self.mat_specs, self.H_b, USER_NO, BS_NO, PRB_NO, MAX_POWER)
-                #chi
-                self.chi_num, self.chi = MA.user_association() # it is turned to a heuristic!
-                self.mat_chi[e, :, :, t] = self.chi # binary variable for b, u
 
+                ###########ACTIONS  ######
+                if t==0:
+                    self.action = self.agent.choose_action(self.state)
+                    MA = Mapping(self.action, self.mat_specs, self.H_b_normalized, USER_NO, BS_NO, PRB_NO, MAX_POWER)
+                    self.chi_num, self.chi = MA.user_association()
+                    self.done_user_prb_allocation, self.rho, prb_cnt_u = MA.ran_prb_allocation() 
+                    self.done_user_power_allocation, self.p, power_cnt_u = MA.ran_power_allocation()
+                    
+                else:
+                    if False:
+                    #if self.mat_satisfied_delay_constraint[e, t-1] == 1.0 and self.mat_satisfied_rate_constraint[e, t-1] == 1.0:
+                        #repeat
+                        print(style.MAGENTA + 'DUPLICATED! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.mat_reward[e, t-1]))
+                        self.action = action_memory[t-1, :]
+
+                        self.chi = self.mat_chi[e, :, :, t-1]
+                        self.chi_num = self.mat_b_connected_episodic[e, :, t-1]
+
+                        self.rho = self.mat_rho[e,:,:,:,t-1]
+                        self.p = self.mat_p[e, :, :, :, t-1] 
+                    else:
+                        self.action = self.agent.choose_action(self.state)
+                        MA = Mapping(self.action, self.mat_specs, self.H_b_normalized, USER_NO, BS_NO, PRB_NO, MAX_POWER)
+                        self.chi_num, self.chi = MA.user_association()
+                        self.done_user_prb_allocation, self.rho, prb_cnt_u = MA.ran_prb_allocation() 
+                        self.done_user_power_allocation, self.p, power_cnt_u = MA.ran_power_allocation()
+                #######################
+
+
+                self.mat_chi[e, :, :, t] = self.chi # binary variable for b, u
                 self.mat_b_connected_episodic[e, :, t] = self.chi_num
 
                 for u in range(USER_NO):
@@ -203,9 +241,8 @@ class _main_:
                             count_handovers += 1
                             self.mat_count_handovers[e, u] += 1
                 
-                self.done_user_prb_allocation, self.rho, prb_cnt_u = MA.ran_prb_allocation() 
                 self.mat_rho[e,:,:,:,t] = self.rho
-                self.mat_satisfied_prb_constraint[e, t] = prb_cnt_u / USER_NO
+                # self.mat_satisfied_prb_constraint[e, t] = prb_cnt_u / USER_NO
 
                 PRB_utilization = np.zeros([BS_NO])
                 # Calculate PRB utilization for each base station
@@ -220,13 +257,12 @@ class _main_:
                             self.mat_used_prbs_per_user[e, :, t] = np.sum(self.rho[b, :, u])
                 
                 #p
-                self.done_user_power_allocation, self.p, power_cnt_u = MA.ran_power_allocation()
                 # self.mat_p_compressed[e, :, t] = self.p_compressed # between 0 and 1
                 self.mat_p[e, :, :, :, t] = self.p
 
                 for u in range(USER_NO):
                     self.mat_sum_power[e, u, t] = np.sum(self.p[:, :, u]) 
-                self.mat_satisfied_power_constraint[e, t] = power_cnt_u / USER_NO
+                # self.mat_satisfied_power_constraint[e, t] = power_cnt_u / USER_NO
                 #################
 
                 #########END OF ACTION ALLOCATION###############
@@ -321,33 +357,41 @@ class _main_:
                 #     if cnt_rate_passed_u == USER_NO:
                 #         #maybe save these!
                 #         print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
-                
-                if self.mat_ssl[e,t] >= 0.5:
-                    self.reward = self.mat_ssl[e, t]
+                self.reward = self.mat_ssl[e, t]
+                # if self.mat_ssl[e,t] >= 0.5:
+                #     self.reward = self.mat_ssl[e, t]
                     
                 
                 
                 
                 self.mat_reward[e, t] = self.reward
 
-                if cnt_delay_passed_u == USER_NO:
-                    if cnt_rate_passed_u == USER_NO:
-                        # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
-                        print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
+                # if cnt_delay_passed_u == USER_NO:
+                #     if cnt_rate_passed_u == USER_NO:
+                #         # self.reward += 100 * self.mat_ssl[e, t] # very positive reward
+                #         print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
 
                 # # ---------Next state calculation--------------
                 LC_next = Location(BS_NO, DU_NO, RU_PER_DU_NO, PRB_NO, USER_NO, VELOCITY,
                               X_LIM, RAYLEIGH_SCALE, ETA_AREA, FH_BW_CAPACITY, E2_BW_CAPACITY)
-                self.loc_users_new, self.H_new, self.mat_distance = LC_next.user_location(self.tt, self.loc_user, self.mat_bs_loc)
+                self.loc_users_new, self.H_new, self.mat_distance_new, self.angle_next = LC_next.user_location(self.tt, self.loc_user, self.mat_bs_loc, self.angle_historic[e,:,t])
+                self.angle_historic[e,:,self.tt] = self.angle_next
+
                 self.H_b_new = np.zeros([BS_NO, USER_NO])
+                self.H_b_new_normalized = np.zeros([BS_NO, USER_NO])
                 for u in range(USER_NO):
                     for b in range(BS_NO):
                         self.H_b_new[b, u] = np.average(self.H_new[b, :, u])
+                min_val = np.min(self.H_b_new)
+                max_val = np.max(self.H_b_new)
+
+                self.H_b_new_normalized = (self.H_b_new - min_val) / (max_val - min_val)
                 # -----------------------------------------------------
-                SC = StateCalculation(self.H_b_new, self.mat_ssl_u_total[e, :, t], self.mat_chi[e, :, :, t-1], 
+                SC = StateCalculation(self.H_b_new_normalized, self.mat_ssl_u_total[e, :, t], self.mat_chi[e, :, :, t-1], 
                                       self.mat_rho[e,:,:,:,t-1], self.mat_p[e, :, :, :, t-1] )
                 self.next_state = SC._()
                 self.next_state = self.next_state.astype('float16')
+                action_memory[t, :] = self.action
                 # -------------------------------------
                 self.agent.memorize(self.state, self.action,
                                     self.reward, self.next_state)
@@ -360,17 +404,17 @@ class _main_:
                 #         print('reward: ', self.reward)
 
                 # # plot periodically:
-                # plt.clf() # Clear the current figure
-                # if t%100 == 0:
-                #     print('reward: ', self.reward)
-                    # WINDOW_SIZE = 200
-                    # data = [moving_average(self.mat_reward, WINDOW_SIZE)] # [m,t]
-                    # labels = ['SAC']
-                    # colors = ['b']  # choose colors for each curve
-                    # linestyles = ['-']  # choose line styles for each curve
-                    # plt.ion()  # Turn on interactive mode
+                plt.clf() # Clear the current figure
+                if t%300 == 0:
+                    print('reward: ', self.reward)
+                    WINDOW_SIZE = 10
+                    data = [moving_average(self.mat_reward, WINDOW_SIZE)] # [m,t]
+                    labels = ['SAC']
+                    colors = ['b']  # choose colors for each curve
+                    linestyles = ['-']  # choose line styles for each curve
+                    plt.ion()  # Turn on interactive mode
 
-                    #plot_graph('Reward (Until episode {}/{} of run {}/{})'.format(t, T, m, MC), data, labels, colors, linestyles, "Episode", "Episodic Reward")
+                    plot_graph('Reward (Until timestep {}/{} of run {}/{})'.format(t, T, e, E), data, labels, colors, linestyles, "Timestep", "Reward")
             # in m loop
             if count_handovers>0:
                 print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs, reward= {}'.format(e, count_handovers, self.reward))
@@ -394,6 +438,8 @@ np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shan
                     mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers, mat_ssl_u_total=mat_ssl_u_total, mat_reward_user=mat_reward_user, logarithmic_reward=logarithmic_reward, mat_no_of_satisfied_delay_and_rate_constraint=mat_no_of_satisfied_delay_and_rate_constraint)
 
 #%% %PLOTTING THE RESULTS%%
+
+
 window_size = 10  # (for smoothing the curves in the plots)
 #####
 LC.visualize_ru_du_locations(du_ru_adj_matrix)
@@ -425,6 +471,25 @@ plot_graph('Avg PRBs used per user for SAC algorithm',
            ['-'],
            'T',
            'Average PRBs used per user')
+
+
+group_size = T//10
+num_groups = 10
+avg_prbs_per_user = np.mean(mat_used_prbs_per_user, axis=(1))
+temp_prb = avg_prbs_per_user[:,:-1]
+avg_prbs_per_user_box = np.average(temp_prb, axis=0)
+
+grouped_data = [avg_prbs_per_user_box[i * group_size:(i + 1) * group_size]for i in range(num_groups)]
+
+# Create a box plot for the grouped rewards
+
+plt.figure(figsize=(10, 6))
+plt.boxplot(grouped_data, vert=True, patch_artist=True)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Avg number of PRBs per user')
+# plt.title('Box Plot of PRB allocations Grouped by 50 Episodes')
+plt.xticks(ticks=np.arange(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
 
 # Fairness for PRBs
 # Calculate PRB utilization for each user at each time step and for each MC run
@@ -475,19 +540,55 @@ plot_graph("Mean episodic rewards",
            "Episode",
            "Mean episodic rewards")
 
+mat_reward_temp = mat_reward[:,:-1]
+mat_reward_boxplot = np.average(mat_reward_temp, axis=0)
+data = [mat_reward_boxplot[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Reward')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
 plot_graph("Constraint Satisfaction",
-           [np.average(mat_satisfied_prb_constraint, axis=0), 
-            np.average(mat_satisfied_power_constraint, axis=0),
-            np.average(mat_satisfied_delay_constraint, axis=0),
-            np.average(mat_satisfied_rate_constraint, axis=0)],
-           ['PRB (SAC)',
-            'Power (SAC)',
-            'Delay (SAC)',
+           [moving_average(np.average(mat_satisfied_delay_constraint, axis=0), window_size),
+            moving_average(np.average(mat_satisfied_rate_constraint, axis=0), window_size)],
+           ['Delay (SAC)',
             'Rate (SAC)'],
-           ['red', 'blue', 'green', 'orange'],
-           ['solid', 'solid', 'solid', 'solid'],
+           ['red', 'blue'],
+           ['solid', 'solid'],
            "Episode",
            "Constraint Satisfaction Rate")
+
+
+temp_delay = mat_satisfied_delay_constraint[:, :-1]
+mat_satisfied_delay_constraint_box = np.average(temp_delay, axis=0)
+data = [mat_satisfied_delay_constraint_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Constraint Satisfaction Rate (Delay)')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
+temp_rate =mat_satisfied_rate_constraint[:, :-1]
+mat_satisfied_rate_constraint_box = np.average(temp_rate, axis=0)
+data = [mat_satisfied_rate_constraint_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Constraint Satisfaction Rate (bitrate)')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
 
 # %%%%%SSL%%%%%%
 plot_graph("SSL Metrics",
@@ -501,9 +602,49 @@ plot_graph("SSL Metrics",
            ['solid', 'solid', 'solid'],
            "Episode",
            "SSL Metrics")
+
+temp_delay = mat_ssl_delay[:, :-1]
+mat_ssl_delay_box = np.average(temp_delay, axis=0)
+data = [mat_ssl_delay_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Delay SSL')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
+temp_rate =mat_ssl_rate[:, :-1]
+mat_ssl_rate_box = np.average(temp_rate, axis=0)
+data = [mat_ssl_rate_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Bitrate SSL')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
+
+
+temp_ssl =mat_ssl[:, :-1]
+mat_ssl_box = np.average(temp_ssl, axis=0)
+data = [mat_ssl_box[i*group_size:(i+1)*group_size] for i in range(num_groups)]
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.boxplot(data)
+plt.xlabel('Groups of 100 Time steps')
+plt.ylabel('Total SSL')
+plt.xticks(ticks=range(1, num_groups + 1), labels=[f'{i*group_size}-{(i+1)*group_size-1}' for i in range(num_groups)])
+plt.show()
+
 # %%%%%Delay%%%%%%
 # Calculate mean delay over users for SAC
-mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=0), axis=1)
+mean_delay_sac = np.mean(np.mean(monte_mat_delay_tot, axis=1), axis=0)
 # Plot the comparison graph
 plot_graph("Comparison of Average E2E Delay (SAC)",
            [moving_average(mean_delay_sac , window_size)],
@@ -550,7 +691,7 @@ plt.show()
 average_rate_ssl_u = np.mean(mat_fittingness_u_rate, axis=0)
 
 for user_idx in range(USER_NO):
-    plt.plot(moving_average(range(T), window_size), moving_average(average_rate_ssl_u[ user_idx,:], window_size), label=f'User {user_idx+1}')
+    plt.plot(moving_average(range(T), window_size), moving_average(average_rate_ssl_u[user_idx,:], window_size), label=f'User {user_idx+1}')
 plt.xlabel('E')
 plt.ylabel('SSL_rate_u')
 plt.title('Normalized rate satisfaction')

@@ -40,7 +40,7 @@ class Mapping:
     def user_association(self):
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
-        self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        self.temp_chi = (self.action[self.e0:self.e1]) #+1)/2 #transition from [-1,1] to [0,1]
         # self.temp_chi = np.clip(self.temp_chi, 0, 1)
         self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
@@ -59,30 +59,30 @@ class Mapping:
 
 
         # Count users per base station and check for overloading
-        user_counts = np.sum(self.chi, axis=0)
-        max_allowed_users_per_bs = np.ceil(self.USER_NO / self.BS_NO)
+        # user_counts = np.sum(self.chi, axis=0)
+        # max_allowed_users_per_bs = np.ceil(self.USER_NO / self.BS_NO)
         
-        # Reallocate users from overloaded BS
-        for b in range(self.BS_NO):
-            if user_counts[b] > max_allowed_users_per_bs:
-                # Find users currently assigned to this overloaded BS
-                overloaded_users = np.where(self.chi[:, b] == 1)[0]
-                # Sort these users based on their channel gains to b, ascending order
-                overloaded_users = overloaded_users[np.argsort(self.H_b[b, overloaded_users])]
-                for u in overloaded_users:
-                    if user_counts[b] <= max_allowed_users_per_bs:
-                        break
-                    # Attempt to reallocate to next highest preference not overloaded
-                    other_bs_preferences = weighted_preferences[u, :]
-                    # Set current overloaded BS preference to very low to avoid reselection
-                    other_bs_preferences[b] = -np.inf
-                    new_bs = np.argmax(other_bs_preferences) # choosing the second best BS for the user
-                    if user_counts[new_bs] < max_allowed_users_per_bs:
-                        # Reassign user u from b to new_bs
-                        self.chi[u, b] = 0
-                        self.chi[u, new_bs] = 1
-                        user_counts[b] -= 1
-                        user_counts[new_bs] += 1
+        # # Reallocate users from overloaded BS
+        # for b in range(self.BS_NO):
+        #     if user_counts[b] > max_allowed_users_per_bs:
+        #         # Find users currently assigned to this overloaded BS
+        #         overloaded_users = np.where(self.chi[:, b] == 1)[0]
+        #         # Sort these users based on their channel gains to b, ascending order
+        #         overloaded_users = overloaded_users[np.argsort(self.H_b[b, overloaded_users])]
+        #         for u in overloaded_users:
+        #             if user_counts[b] <= max_allowed_users_per_bs:
+        #                 break
+        #             # Attempt to reallocate to next highest preference not overloaded
+        #             other_bs_preferences = weighted_preferences[u, :]
+        #             # Set current overloaded BS preference to very low to avoid reselection
+        #             other_bs_preferences[b] = -np.inf
+        #             new_bs = np.argmax(other_bs_preferences) # choosing the second best BS for the user
+        #             if user_counts[new_bs] < max_allowed_users_per_bs:
+        #                 # Reassign user u from b to new_bs
+        #                 self.chi[u, b] = 0
+        #                 self.chi[u, new_bs] = 1
+        #                 user_counts[b] -= 1
+        #                 user_counts[new_bs] += 1
         
         # Update self.chi_num to reflect the final user-BS associations
         self.chi_num = np.argmax(self.chi, axis=1)
@@ -211,7 +211,7 @@ class Mapping:
 
     def ran_prb_allocation(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation
         self.e2 = self.e1 + self.USER_NO
-        self.temp_rho = (self.action[self.e1:self.e2]+1)/2
+        self.temp_rho = (self.action[self.e1:self.e2]) #+1)/2
         self.temp_rho = np.clip(self.temp_rho, 0.1, 1)
         self.temp_rho_reshaped = np.reshape(self.temp_rho, [self.USER_NO])
 
@@ -409,7 +409,7 @@ class Mapping:
     
     def ran_power_allocation(self):
         self.e3 = self.e2 + self.USER_NO
-        self.temp_p = (self.action[self.e2:self.e3]+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
+        self.temp_p = (self.action[self.e2:self.e3]) #+1)/2 ### normalizing the values that are previously between [-1,1] to [0,1]
         self.temp_p = np.clip(self.temp_p, 0.1, 1) # to avoid 0 values for power
         self.temp_p_reshaped = np.reshape(self.temp_p, [self.USER_NO])
 

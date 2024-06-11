@@ -217,6 +217,7 @@ class ActorNetwork(nn.Module):
             actions = probabilities.sample()
 
         action = T.tanh(actions) * T.tensor(self.max_action).to(self.device)
+        action = (action - action.min()) / (action.max() - action.min()) ##NORMALIZE
         log_probs = probabilities.log_prob(actions)
         log_probs -= T.log(1 - action.pow(2) + self.reparam_noise) # entropy
         log_probs = log_probs.sum(1, keepdim = True)

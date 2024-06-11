@@ -145,25 +145,31 @@ class Location:
         #                                         self.V[u] * np.sin(np.radians(self.angle[u]))]
         #         loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
 # User location and channel gain calculations
-    def user_location(self, t, loc_user, mat_bs_loc): #also calculates channel gain
+
+    def user_location(self, t, loc_user, mat_bs_loc, previous_angle): #also calculates channel gain
         self.mat_bs_loc = mat_bs_loc# Location.bs_location(self)
         self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])
         #self.associator = np.zeros([self.USER_NO, self.BS_NO])
         self.mat_distance = np.zeros([self.BS_NO, self.USER_NO])
         #self.mat_b_connected = np.zeros(self.USER_NO) 
         std_dev_angle = 1 # 5  # Standard deviation of angle
+        angles = [0, 45, 90, 135, 180, 225, 270, 315]
 
         for u in range(self.USER_NO):
             # Generate random angle with some persistence
             if t == 0:
-                self.angle[u] = np.random.uniform(0, 360)  # Initial random direction
+                #self.angle[u] = np.random.uniform(0, 360)  # Initial random direction
+                self.angle[u] = random.choice(angles)
             else:
-                # Introduce some persistence in direction changes
-                persistence_factor = 0.99  # Adjust for desired direction change frequency
-                self.angle[u] = self.angle[u] * persistence_factor + np.random.normal(0, std_dev_angle * (1 - persistence_factor))
+                self.angle[u] = previous_angle[u]
+                if t%20==0: #every 20 time step, we introduce a new random direction                
+                    self.angle[u] += np.random.uniform(0,180) #90) #degrees
+            # else:
+            #     # Introduce some persistence in direction changes
+            #     persistence_factor = 0.8  # Adjust for desired direction change frequency
+            #     self.angle[u] = self.angle[u] * persistence_factor + np.random.normal(0, std_dev_angle * (1 - persistence_factor))
 
-            if t%20==0: #every 20 time step, we introduce a new random direction
-                self.angle[u] += np.random.uniform(0,180) #90) #degrees
+            
             
             # Set user velocity if not defined
             if self.velocity == -1:
@@ -173,50 +179,54 @@ class Location:
 
             # Update user location based on angle and velocity
             if t == 0:
-                # loc_user[t, u, 0] = 500  # Initial position
-                # loc_user[t, u, 1] = 450  # Initial position
                 # loc_user[t, u, :] = self.X_LIM * np.random.rand(2)  # Initial random position
-                ####################USERS ON THE EDGE (WORST CONDITION)##############################
-                users_per_edge = self.USER_NO // 4
-                extra_users = self.USER_NO % 4
-                # Function to distribute users along an edge
-                def distribute_users(start, end, num_users):
-                    return [start + (end - start) * i / (num_users + 1) for i in range(1, num_users + 1)]
+
+                loc_user[t, u, 0] = self.X_LIM * np.random.rand(1)
+                midpoint = self.USER_NO // 2
+                loc_user[t, :midpoint, 1] = 2 * self.X_LIM / 3
+                loc_user[t, midpoint:, 1] = self.X_LIM / 3
                 
-                user_index=0
-                # Bottom edge (x varies from 0 to X_LIM, y = 0)
-                for x in distribute_users(0, self.X_LIM, users_per_edge + (1 if extra_users > 0 else 0)):
-                    loc_user[0, user_index, 0] = x
-                    loc_user[0, user_index, 1] = 0
-                    user_index += 1
-                    extra_users -= 1
+                ####################USERS ON THE EDGE (WORST CONDITION)##############################
+                # users_per_edge = self.USER_NO // 4
+                # extra_users = self.USER_NO % 4
+                # # Function to distribute users along an edge
+                # def distribute_users(start, end, num_users):
+                #     return [start + (end - start) * i / (num_users + 1) for i in range(1, num_users + 1)]
+                
+                # user_index=0
+                # # Bottom edge (x varies from 0 to X_LIM, y = 0)
+                # for x in distribute_users(0, self.X_LIM, users_per_edge + (1 if extra_users > 0 else 0)):
+                #     loc_user[0, user_index, 0] = x
+                #     loc_user[0, user_index, 1] = 0
+                #     user_index += 1
+                #     extra_users -= 1
 
-                # Right edge (x = X_LIM, y varies from 0 to X_LIM)
-                for y in distribute_users(0, self.X_LIM, users_per_edge + (1 if extra_users > 0 else 0)):
-                    loc_user[0, user_index, 0] = self.X_LIM
-                    loc_user[0, user_index, 1] = y
-                    user_index += 1
-                    extra_users -= 1
+                # # Right edge (x = X_LIM, y varies from 0 to X_LIM)
+                # for y in distribute_users(0, self.X_LIM, users_per_edge + (1 if extra_users > 0 else 0)):
+                #     loc_user[0, user_index, 0] = self.X_LIM
+                #     loc_user[0, user_index, 1] = y
+                #     user_index += 1
+                #     extra_users -= 1
 
-                # Top edge (x varies from X_LIM to 0, y = X_LIM)
-                for x in distribute_users(self.X_LIM, 0, users_per_edge + (1 if extra_users > 0 else 0)):
-                    loc_user[0, user_index, 0] = x
-                    loc_user[0, user_index, 1] = self.X_LIM
-                    user_index += 1
-                    extra_users -= 1
+                # # Top edge (x varies from X_LIM to 0, y = X_LIM)
+                # for x in distribute_users(self.X_LIM, 0, users_per_edge + (1 if extra_users > 0 else 0)):
+                #     loc_user[0, user_index, 0] = x
+                #     loc_user[0, user_index, 1] = self.X_LIM
+                #     user_index += 1
+                #     extra_users -= 1
 
-                # Left edge (x = 0, y varies from X_LIM to 0)
-                for y in distribute_users(self.X_LIM, 0, users_per_edge + (1 if extra_users > 0 else 0)):
-                    loc_user[0, user_index, 0] = 0
-                    loc_user[0, user_index, 1] = y
-                    user_index += 1
-                    extra_users -= 1
+                # # Left edge (x = 0, y varies from X_LIM to 0)
+                # for y in distribute_users(self.X_LIM, 0, users_per_edge + (1 if extra_users > 0 else 0)):
+                #     loc_user[0, user_index, 0] = 0
+                #     loc_user[0, user_index, 1] = y
+                #     user_index += 1
+                #     extra_users -= 1
 
-                # ########VERY CLOSE TO BSs############
-                # loc_user[t, 0, 0] = 250
+                ########VERY CLOSE TO BSs############
+                # loc_user[t, 0, 0] = 290
                 # loc_user[t, 0, 1] = 166
 
-                # loc_user[t, 1, 0] = 250
+                # loc_user[t, 1, 0] = 150
                 # loc_user[t, 1, 1] = 500
 
                 # loc_user[t, 2, 0] = 250
@@ -225,37 +235,46 @@ class Location:
                 # loc_user[t, 3, 0] = 750
                 # loc_user[t, 3, 1] = 166
 
-                # loc_user[t, 4, 0] = 750
+                # loc_user[t, 4, 0] = 700
                 # loc_user[t, 4, 1] = 500
 
-                # loc_user[t, 5, 0] = 750
+                # loc_user[t, 5, 0] = 550
                 # loc_user[t, 5, 1] = 833
 
                 # loc_user[t, 6, 0] = 250
-                # loc_user[t, 6, 1] = 180
+                # loc_user[t, 6, 1] = 280
 
-                # loc_user[t, 7, 0] = 250
-                # loc_user[t, 7, 1] = 520
+                # loc_user[t, 7, 0] = 150
+                # loc_user[t, 7, 1] = 590
 
-                # loc_user[t, 8, 0] = 250
-                # loc_user[t, 8, 1] = 850
+                # loc_user[t, 8, 0] = 450
+                # loc_user[t, 8, 1] = 890
 
-                # loc_user[t, 9, 0] = 750
-                # loc_user[t, 9, 1] = 180
+                # loc_user[t, 9, 0] = 850
+                # loc_user[t, 9, 1] = 101
 
             else:
                 next_pos = loc_user[t - 1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
                                                     self.V[u] * np.sin(np.radians(self.angle[u]))]
                 
                 # Handle boundary conditions with more flexible movement:
-                if np.any(next_pos >= self.X_LIM) or np.any(next_pos <= 0):  # Reached any boundary
+                # if np.any(next_pos >= self.X_LIM) or np.any(next_pos <= 0):  # Reached any boundary
+                # if next_pos[0] >= self.X_LIM:
+                #     print('me')
+                # if u==2:
+                #     print('me')
+                if np.any(next_pos >= self.X_LIM - 100) or np.any(next_pos <= 100):  # Reached any boundary
                     # Make a U-turn and add a bias towards the center
                     center_bias = 180 if np.mean(next_pos) > self.X_LIM / 2 else 0
                     # self.angle[u] = (self.angle[u] + 180 + center_bias) % 360
                     self.angle[u] = (self.angle[u] + 90 + center_bias) % 360
 
+                    next_pos = loc_user[t - 1, u, :] + [self.V[u] * np.cos(np.radians(self.angle[u])),
+                                                    self.V[u] * np.sin(np.radians(self.angle[u]))]
+
                 # Ensure user stays within boundaries, even for corner cases
-                loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
+                loc_user[t, u, :] = np.clip(next_pos, 100, self.X_LIM-100)
+                # loc_user[t, u, :] = np.clip(next_pos, 0, self.X_LIM)
 
             for b in range(self.BS_NO):
                 x_b, y_b = self.mat_bs_loc[b]
@@ -278,9 +297,11 @@ class Location:
 
             # if self.b_pred_connected != self.b_connected:
             #     self.handover_prediction[u] = True
-        return loc_user, self.H, self.mat_distance
+        return loc_user, self.H, self.mat_distance, self.angle
         #return loc_user, self.H,  ==0:self.associator, self.mat_distance, self.mat_b_connected
     
+ 
+
     def user_location_random_init(self, t, loc_user, mat_bs_loc): #also calculates channel gain
         self.mat_bs_loc = mat_bs_loc# Location.bs_location(self)
         self.H = np.zeros([self.BS_NO, self.PRB_NO, self.USER_NO])

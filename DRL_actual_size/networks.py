@@ -92,6 +92,7 @@ class ActorNetwork(nn.Module):
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac')
         self.max_action = max_action
         self.reparam_noise = 1e-6 # probably it is the entropy coefficient, which balances between exploration and exploitation in the policy
+        self.steepness = 10
 
         self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
@@ -112,8 +113,8 @@ class ActorNetwork(nn.Module):
         prob = self.fc1(state)
         prob = F.relu(prob)
         prob = self.fc2(prob)
-        # prob = F.tanh(prob)
-        prob = F.sigmoid(prob)
+        prob = F.tanh(prob)
+        # prob = F.sigmoid(prob) # F.sigmoid(self.steepness * prob)
         mu = self.mu(prob)
         sigma = self.sigma(prob)
         sigma = T.clamp(sigma, min = self.reparam_noise, max = 1)
@@ -130,8 +131,9 @@ class ActorNetwork(nn.Module):
         else:
             actions = probabilities.sample()
 
-        # action = T.tanh(actions) * T.tensor(self.max_action).to(self.device)
-        action = F.sigmoid(actions) * T.tensor(self.max_action).to(self.device)
+        action = T.tanh(actions) * T.tensor(self.max_action).to(self.device)
+        #action = F.sigmoid(actions) * T.tensor(self.max_action).to(self.device)
+        action = (action - action.min()) / (action.max() - action.min())
         log_probs = probabilities.log_prob(actions)
         log_probs -= T.log(1 - action.pow(2) + self.reparam_noise) # entropy
         log_probs = log_probs.sum(1, keepdim = True)
