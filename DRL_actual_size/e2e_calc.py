@@ -64,7 +64,7 @@ class Mapping:
     def user_association_heuristic(self):
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
-        self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        self.temp_chi = (self.action[self.e0:self.e1])#transition from [-1,1] to [0,1]
         # self.temp_chi = np.clip(self.temp_chi, 0, 1)
         self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])
@@ -111,7 +111,7 @@ class Mapping:
         # Update self.chi_num to reflect the final user-BS associations
         self.chi_num = np.argmax(self.chi, axis=1)
 
-        return self.temp_chi_reshaped, self.chi_num, self.chi
+        return self.chi_num, self.chi
     # def fh_e2_remaining_capacity(self):    #SKIPPING FOR NOW    
     #     return self.temp_mat_fh_links_capacity, self.temp_mat_e2_links_capacity
     def ran_prb_allocation_old(self): # Equivalent to \rho^{b}_{o,u}(t) in the paper; PRB allocation

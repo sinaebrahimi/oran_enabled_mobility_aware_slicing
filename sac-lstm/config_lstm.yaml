@@ -20,12 +20,12 @@ E2_BW_CAPACITY: 100000 # 5 Gbps in twc23kavehmadani #Mbps (100 Gbps) (link betwe
 #NODE_NO: 12
 SLICE_NO: 3 #5 # number of slice types ; will be indexed from 0 to (SLICE_NO - 1)
 MAX_POWER: 40 # in watts ; equals to 46 dBm <tvt23choi> # 12 # (to be updated after consulting with Faouzi) # 46 dBm in tvt23choi = 40 watts (Much higher than normal papers)
-OMEGA_1: 0.3 # to use in SSL weighting (for data rate term)
-VELOCITY: 20 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
-CONST_D_MAX: -1  #-1 # -1 # 20 #-1 # ms
-CONST_R_MIN: -1  #-1 # -1 # 5 #-1 # Mbps  
+OMEGA_1: 0.5 # to use in SSL weighting (for data rate term)
+VELOCITY: 10 # 10 #0 #-1 means random #35 # m/s [5,20,35,50] #             = self.V ##################################################
+CONST_D_MAX: 10 #  -1 # 10 # -1  #-1 # -1 # 20 #-1 # ms
+CONST_R_MIN: 10 # -1 # 10 # -1  #-1 # -1 # 5 #-1 # Mbps  
 #ISOLATION_ORDER: -1
-PACKET_SIZE: -1 #-1 # -1 # 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23kavehmadani: 1 KB for URLLC and 125 KB for eMBB
+PACKET_SIZE: 0.012 #-1 #  0.012  #-1 #-1 # -1 # 0.012 # based on 1500 bytes for eMBB # in mbits # -1 # twc23kavehmadani: 1 KB for URLLC and 125 KB for eMBB
 #PACKET_NO: 830  # 500 # -1 # packet generation rate per second # 0.012*500 = 6 Mbps # 0.012*830 = 9.96 Mbps
 RAYLEIGH_SCALE: 1 # sigma in Rayleigh formula
 #Episodes (T) and Number of monte-carlo runs:#
@@ -33,7 +33,7 @@ E: 1 #1000# episodes/epochs for learning (the loop before T loop (replaces MC lo
 T: 4000 #100# 14000 # 1000  # Number of timeslots
 #MC: 3  # Number of Monte-carlo runs
 #Hyperparameters for the DRL algorithm
-ALPHA_ACT: 0.000003 #01 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
+ALPHA_ACT: 0.000002 #01 # 0.00001 # 0.00001 #0.000001 # actor's learning rate
 BETA_ACT: 0.00001 # 5 # 0.00005 # 0.00005 # 0.00005 # 0.000005 # Critic's learning rate
 VAR: 1
 DECAY_VAR: 0.999 #95 #95 # .995 # can determine the ratio of exploration to exploitation

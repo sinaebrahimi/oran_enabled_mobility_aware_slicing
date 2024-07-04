@@ -37,7 +37,7 @@ class Mapping:
         # self.temp_mat_e2_links_capacity = np.copy(mat_e2_links_capacity)
         #############################################################
 #%% RAN mapping:
-    def user_association(self):
+    def user_association_pure_drl(self):
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
         self.temp_chi = (self.action[self.e0:self.e1]) #+1)/2 #transition from [-1,1] to [0,1]
@@ -88,10 +88,10 @@ class Mapping:
         self.chi_num = np.argmax(self.chi, axis=1)
 
         return self.temp_chi_reshaped, self.chi_num, self.chi
-    def user_association_heuristic(self):
+    def user_association(self):
         self.e0 = 0
         self.e1 = self.USER_NO # * self.BS_NO
-        self.temp_chi = (self.action[self.e0:self.e1]+1)/2 #transition from [-1,1] to [0,1]
+        self.temp_chi = (self.action[self.e0:self.e1]) #transition from [-1,1] to [0,1]
         # self.temp_chi = np.clip(self.temp_chi, 0, 1)
         self.temp_chi = np.clip(self.temp_chi, 0.001, 1) # to avoid negative values # to make sure that the values are between 0 and 1
         self.temp_chi_reshaped = np.reshape(self.temp_chi, [self.USER_NO])

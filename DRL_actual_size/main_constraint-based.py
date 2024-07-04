@@ -13,7 +13,7 @@ from e2e_calc import Mapping, Delay, StateCalculation
 from sac_torch import Agent
 np.random.seed(1372) # some random number
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" # or "1"; change the GPU for multiple simulations (We have 0 and 1 in K80 (zeus401 and zeus402))
 # ------Loading the parameters-----------
 
 # config_file = 'sac-lstm/config_lstm.yaml' #
@@ -90,6 +90,8 @@ class _main_:
         self.log_geometric_mean = np.zeros([E, T])        
         self.regularization_term = np.zeros([E, T])   
         self.logarithmic_reward = np.zeros([E, T])
+        self.user_assignment_penalty_per_user = np.zeros([E, USER_NO, T])
+        self.total_user_assignment_penalty = np.zeros([E, T])
 
         ####
         self.mat_episode_runtime = np.zeros([E, T])
@@ -112,6 +114,8 @@ class _main_:
         self.mat_count_handovers = np.zeros((E, USER_NO))
         self.monte_mat_delay_tot = np.zeros([E, USER_NO, T])
         self.angle_historic = np.zeros([E, USER_NO, T])
+        self.remaining_prbs = np.zeros([E, BS_NO, T])
+        self.remaining_power = np.zeros([E, BS_NO, T])
         # # ----------obtaining the number of actions--------------
         # # self.e1 = USER_NO * BS_NO # user_association()
         # # self.e2 = self.e1 + BS_NO * PRB_NO * USER_NO # ran_prb_allocation()
@@ -128,7 +132,30 @@ class _main_:
         self.s3 = self.s2 + self.num_actions
         self.state_size = self.s3
 
+    def calculate_penalty(self): # H_b, USER_NO, BS_NO, chi_num
+        penalty = 0
+        penalty_per_user = np.zeros([USER_NO])
 
+        ##Normalized-based penalization###
+        # for u in range(USER_NO):
+        #     highest_gain_value = np.max(self.H_b[:, u])
+        #     selected_gain_value = self.H_b[int(self.chi_num[u]), u]
+        #     lowest_gain_value = np.min(self.H_b[:, u])
+
+        #     if selected_gain_value != highest_gain_value:
+        #         penalty_per_user[u] = (highest_gain_value - selected_gain_value) / (highest_gain_value - lowest_gain_value)
+        #         penalty += (1 / USER_NO) * penalty_per_user[u]
+
+        ##Rank-based penalization###
+        for u in range(USER_NO):
+            user_channel_gains = self.H_b_normalized[:, u]
+            sorted_indices = np.argsort(-user_channel_gains)  # Sort in descending order
+            selected_index = int(self.chi_num[u])
+            rank = np.where(sorted_indices == selected_index)[0][0]
+            normalized_rank = rank / (BS_NO - 1)
+            penalty_per_user[u] = normalized_rank
+            penalty += (1 / USER_NO) * normalized_rank
+        return penalty, penalty_per_user
 
     def _(self):
         #resetting the SAC agent here!  
@@ -156,7 +183,7 @@ class _main_:
                 start_time = time.time()
                 self.tt = t + 1
                 # starting with a negative award, aiming to learn more in initial episodes; Not sure if it is necessary (due to line 495)
-                self.reward = 0 # 0 # -1 # -100
+                self.reward = -1 # 0 # -1 # -100
                 self.mat_delay_tot = np.ones([USER_NO])
                 self.mat_rate = np.zeros([USER_NO])
                 # ----------------------------------------------- 
@@ -312,6 +339,8 @@ class _main_:
                             if self.mat_fittingness_u_delay[e, u, t] < 0.5 :
                                 self.mat_reward_user[e, u, t] -= (0.5 - self.mat_fittingness_u_delay[e, u, t])
                 
+                self.mat_fittingness_u_delay[e, :, t] = np.clip(self.mat_fittingness_u_delay[e,:, t], 1e-10, 1.0)
+                self.mat_fittingness_u_rate[e, :, t] = np.clip(self.mat_fittingness_u_rate[e,:, t], 1e-10, 1.0)
                 for u in range(USER_NO):
                     self.mat_ssl_u_total[e, u, t] = ((self.mat_fittingness_u_rate[e, u, t])**(OMEGA_1)) * ((self.mat_fittingness_u_delay[e, u, t])**(1 - OMEGA_1)) # utility function
                     # if self.mat_reward_user[e, u, t] < 0:
@@ -332,6 +361,7 @@ class _main_:
                 self.mat_ssl_u_total[e, :, t] = np.clip(self.mat_ssl_u_total[e, :, t], 1e-10, 1.0) #ensuring that we do not have zero SSLs to avoid division by zero in the logarithmic function
                 self.mat_ssl[e, t] = np.clip(self.mat_ssl[e, t], 1e-10, 1.0)
 
+
                 
                     # else:
                     #     print('DEBUG ME')
@@ -348,18 +378,27 @@ class _main_:
                 ##Counting the number of happy users## 
                 self.mat_no_of_satisfied_delay_and_rate_constraint[e, t] = cnt_delay_passed_u + cnt_rate_passed_u #2U
                            
-                # self.reward += self.mat_no_of_satisfied_delay_and_rate_constraint[e, t] * self.mat_ssl[e, t] / (2*USER_NO) # self.reward += 100 * self.mat_ssl[e, t] 
+                # self.reward = self.mat_no_of_satisfied_delay_and_rate_constraint[e, t] / (2*USER_NO)
+                
+                # self.reward = self.mat_no_of_satisfied_delay_and_rate_constraint[e, t] * self.mat_ssl[e, t] / (2*USER_NO)
                 # self.reward += np.log(self.mat_ssl[e, t])
-                # self.reward += np.average(self.mat_ssl_u_total[e, :, t])
+                # self.reward = np.average(self.mat_ssl_u_total[e, :, t])
+
+                # self.reward = self.mat_ssl_rate[e, t]
+                # self.reward = np.average(self.mat_fittingness_u_rate[e, :, t])
 
                 # self.reward += np.sum(self.mat_rate) # self.log_geometric_mean[e, t]  
                 # if cnt_delay_passed_u == USER_NO:
                 #     if cnt_rate_passed_u == USER_NO:
                 #         #maybe save these!
                 #         print(style.RED + 'NICE! Episode: {}, Timestep: {}, Reward: {}'.format(e, t, self.reward))
-                self.reward = self.mat_ssl[e, t]
+                
                 # if self.mat_ssl[e,t] >= 0.5:
                 #     self.reward = self.mat_ssl[e, t]
+                self.total_user_assignment_penalty[e,t], self.user_assignment_penalty_per_user[e,:,t] = self.calculate_penalty()                
+
+                self.reward = self.mat_ssl[e, t] - self.total_user_assignment_penalty[e,t]
+                # self.reward = - self.total_user_assignment_penalty[e,t]
                     
                 
                 
@@ -421,12 +460,12 @@ class _main_:
             if e%100 == 0:
                 #print(style.CYAN + 'Total Handovers  over all timesteps: Episode {}= {} HOs, reward= {}'.format(e, count_handovers, self.reward))
                 LC.plot_user_movement(self.loc_user, self.mat_chi[e, :, :, :], T-1)
-        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_p, self.mat_sum_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers, self.mat_ssl_u_total, self.mat_reward_user, self.logarithmic_reward, self.mat_no_of_satisfied_delay_and_rate_constraint
+        return self.mat_rho, self.mat_u_bs_dist, self.shannon, self.mat_gain, self.mat_p, self.mat_sum_power, self.mat_reward, self.mat_satisfied_prb_constraint, self.mat_satisfied_power_constraint, self.mat_satisfied_delay_constraint, self.mat_satisfied_rate_constraint, self.mat_ssl_rate, self.mat_ssl_delay, self.mat_ssl, self.mat_episode_runtime, self.mat_rate, self.monte_mat_delay_tot, self.mat_used_prbs_per_user, self.mat_prb_util_per_bs, self.du_ru_adj_matrix, LC, self.mat_chi, self.loc_user, self.max_rate, self.max_inversed_delay, self.mat_ssl_u_rate, self.mat_ssl_u_delay, self.mat_fittingness_u_rate, self.mat_fittingness_u_delay, self.mat_specs, self.mat_count_handovers, self.mat_ssl_u_total, self.mat_reward_user, self.logarithmic_reward, self.mat_no_of_satisfied_delay_and_rate_constraint, self.total_user_assignment_penalty, self.user_assignment_penalty_per_user
 
 
 # %%
 M = _main_(E, T)
-mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_p, mat_sum_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers, mat_ssl_u_total, mat_reward_user, logarithmic_reward, mat_no_of_satisfied_delay_and_rate_constraint = M._()
+mat_rho, mat_u_bs_dist, shannon, mat_gain, mat_p, mat_sum_power, mat_reward, mat_satisfied_prb_constraint, mat_satisfied_power_constraint, mat_satisfied_delay_constraint, mat_satisfied_rate_constraint, mat_ssl_rate, mat_ssl_delay, mat_ssl, mat_episode_runtime, mat_rate, monte_mat_delay_tot, mat_used_prbs_per_user, mat_prb_util_per_bs, du_ru_adj_matrix, LC, mat_chi, loc_user, max_rate, max_inversed_delay, mat_ssl_u_rate, mat_ssl_u_delay, mat_fittingness_u_rate, mat_fittingness_u_delay, mat_specs, mat_count_handovers, mat_ssl_u_total, mat_reward_user, logarithmic_reward, mat_no_of_satisfied_delay_and_rate_constraint, total_user_assignment_penalty, user_assignment_penalty_per_user = M._()
 
 # %%%%%%%
 
@@ -435,7 +474,8 @@ filename = f'O-RAN SAC, U={USER_NO}, PRB={PRB_NO}, BS={BS_NO}, E={E}, T={T}, VEL
 np.savez_compressed(filename, mat_rho=mat_rho, mat_u_bs_dist=mat_u_bs_dist, shannon=shannon, mat_gain=mat_gain, mat_p=mat_p, mat_sum_power=mat_sum_power, mat_reward=mat_reward, mat_satisfied_prb_constraint=mat_satisfied_prb_constraint, mat_satisfied_power_constraint=mat_satisfied_power_constraint,
                     mat_satisfied_delay_constraint=mat_satisfied_delay_constraint, mat_satisfied_rate_constraint=mat_satisfied_rate_constraint, mat_ssl_rate=mat_ssl_rate, mat_ssl_delay=mat_ssl_delay, mat_ssl=mat_ssl, mat_episode_runtime=mat_episode_runtime, mat_rate=mat_rate, 
                     monte_mat_delay_tot=monte_mat_delay_tot, mat_used_prbs_per_user=mat_used_prbs_per_user, mat_prb_util_per_bs=mat_prb_util_per_bs, du_ru_adj_matrix=du_ru_adj_matrix, mat_chi=mat_chi, max_rate=max_rate, max_inversed_delay=max_inversed_delay, 
-                    mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers, mat_ssl_u_total=mat_ssl_u_total, mat_reward_user=mat_reward_user, logarithmic_reward=logarithmic_reward, mat_no_of_satisfied_delay_and_rate_constraint=mat_no_of_satisfied_delay_and_rate_constraint)
+                    mat_fittingness_u_rate=mat_fittingness_u_rate, mat_fittingness_u_delay=mat_fittingness_u_delay, mat_specs=mat_specs, mat_count_handovers=mat_count_handovers, mat_ssl_u_total=mat_ssl_u_total, mat_reward_user=mat_reward_user, logarithmic_reward=logarithmic_reward, 
+                    mat_no_of_satisfied_delay_and_rate_constraint=mat_no_of_satisfied_delay_and_rate_constraint, total_user_assignment_penalty=total_user_assignment_penalty, user_assignment_penalty_per_user=user_assignment_penalty_per_user)
 
 #%% %PLOTTING THE RESULTS%%
 
@@ -523,6 +563,13 @@ plt.show()
 #            "Mean fairness score")
 
 # %%REWARD%%%%
+plot_graph("User assignment penalty",
+           [moving_average(np.average(total_user_assignment_penalty, axis=0), window_size)],
+           ['SAC'],
+           ['blue'],
+           ['solid'],
+           "Episode",
+           "User assignment penalty")
 
 plot_graph("logarithmic rewards",
            [moving_average(np.average(logarithmic_reward, axis=0), window_size)],
